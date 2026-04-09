@@ -1,0 +1,63 @@
+{
+  "name": "unprompted-flow-qa",
+  "version": "0.1.0",
+  "description": "Strategic evaluation session — dev-only embedded QA sidebar for React SPAs (Unprompted precursor)",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./vite-plugin": {
+      "types": "./dist/vite-plugin.d.ts",
+      "import": "./dist/vite-plugin.js",
+      "require": "./dist/vite-plugin.cjs"
+    }
+  },
+  "bin": {
+    "flow-qa": "./dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "examples",
+    "docs"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "flow-qa:generate": "node dist/cli.mjs generate",
+    "flow-qa:git-context": "node dist/cli.mjs git-context"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "html-to-image": "^1.11.13",
+    "micromatch": "^4.0.8"
+  },
+  "devDependencies": {
+    "@types/micromatch": "^4.0.9",
+    "@types/node": "^22.10.1",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2"
+  },
+  "license": "MIT",
+  "keywords": [
+    "qa",
+    "react",
+    "devtools",
+    "unprompted"
+  ]
+}

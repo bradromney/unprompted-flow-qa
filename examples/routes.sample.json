@@ -1,0 +1,7 @@
+{
+  "routes": [
+    { "path": "/", "file": "src/pages/Home.tsx" },
+    { "path": "/pipeline/:id", "file": "src/pages/PipelineDetail.tsx" },
+    { "path": "/settings", "file": "src/pages/Settings.tsx" }
+  ]
+}
