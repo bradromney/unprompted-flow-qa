@@ -172,19 +172,22 @@ export function FlowQAShell(props: FlowQAShellProps) {
     return findMatchingStepIds(pathname, bundle.steps);
   }, [bundle, pathname]);
 
-  const markVisited = useCallback(
-    (stepId: string) => {
-      const next = { ...visited, [stepId]: true };
-      setVisited(next);
-      setVisitedSteps(next);
-    },
-    [visited]
-  );
-
   useEffect(() => {
     if (!enabled || !bundle) return;
-    for (const sid of matchingStepIds) markVisited(sid);
-  }, [enabled, bundle, matchingStepIds, markVisited]);
+    setVisited((prev) => {
+      let next = prev;
+      let changed = false;
+      for (const sid of matchingStepIds) {
+        if (!next[sid]) {
+          if (!changed) next = { ...prev };
+          changed = true;
+          next[sid] = true;
+        }
+      }
+      if (changed) setVisitedSteps(next);
+      return changed ? next : prev;
+    });
+  }, [enabled, bundle, matchingStepIds]);
 
   useEffect(() => {
     if (!enabled) return;
