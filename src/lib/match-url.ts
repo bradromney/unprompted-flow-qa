@@ -1,11 +1,30 @@
-import micromatch from "micromatch";
-
-function normalizeGlob(pattern: string): string {
-  const pat = pattern.startsWith("/") ? pattern.slice(1) : pattern;
+/**
+ * Browser-safe URL path glob matching (no micromatch/picomatch — they touch `process` in the browser).
+ * * → single path segment; ** (including normalized trailing `foo*`) → matches across `/`.
+ */
+function pathGlobToRegExp(patternSansLeadingSlash: string): RegExp {
+  let pat = patternSansLeadingSlash;
   if (!pat.includes("/") && pat.endsWith("*") && !pat.endsWith("**")) {
-    return `${pat.slice(0, -1)}**`;
+    pat = `${pat.slice(0, -1)}**`;
+  } else {
+    pat = pat.replace(/(^|\/)\*(?!\*)/g, "$1**");
   }
-  return pat.replace(/(^|\/)\*(?!\*)/g, "**");
+  let re = "^";
+  for (let i = 0; i < pat.length; i++) {
+    const c = pat[i];
+    if (c === "*" && pat[i + 1] === "*") {
+      re += ".*";
+      i++;
+    } else if (c === "*") {
+      re += "[^/]*";
+    } else if (/[.+?^${}()|[\]\\]/.test(c)) {
+      re += `\\${c}`;
+    } else {
+      re += c;
+    }
+  }
+  re += "$";
+  return new RegExp(re);
 }
 
 export function matchStepPath(
@@ -15,8 +34,7 @@ export function matchStepPath(
 ): boolean {
   if (type === "regex") {
     try {
-      const re = new RegExp(urlPattern);
-      return re.test(pathname);
+      return new RegExp(urlPattern).test(pathname);
     } catch {
       return false;
     }
@@ -24,8 +42,8 @@ export function matchStepPath(
   const p = pathname.startsWith("/") ? pathname : `/${pathname}`;
   const pathSeg = p.slice(1) || "";
   const patSeg = (urlPattern.startsWith("/") ? urlPattern.slice(1) : urlPattern) || "";
-  const mmPat = normalizeGlob(patSeg);
-  return micromatch.isMatch(pathSeg, mmPat, { dot: true });
+  const re = pathGlobToRegExp(patSeg);
+  return re.test(pathSeg);
 }
 
 export function findMatchingStepIds(

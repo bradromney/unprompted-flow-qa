@@ -57,6 +57,7 @@ export function FlowQAShell(props: FlowQAShellProps) {
     appViewportRef,
     routeConfig,
     getLocation,
+    enabled = true,
     subscribeLocation,
     flowQaAssetBase = "/flow-qa",
     gitContextPath = "git-context.json",
@@ -88,28 +89,67 @@ export function FlowQAShell(props: FlowQAShellProps) {
   });
 
   useEffect(() => {
+    if (!enabled) {
+      setWorkspace(null);
+      return;
+    }
     loadWorkspace(flowQaAssetBase, { gitFile: gitContextPath.replace(/^\//, "") }).then(setWorkspace);
-  }, [flowQaAssetBase, gitContextPath]);
+  }, [enabled, flowQaAssetBase, gitContextPath]);
 
   useEffect(() => {
+    if (!enabled) return;
     if (!subscribeLocation) {
       const t = setInterval(() => setPathname(getLocation().pathname), 400);
       return () => clearInterval(t);
     }
     const unsub = subscribeLocation(() => setPathname(getLocation().pathname));
     return unsub;
-  }, [getLocation, subscribeLocation]);
+  }, [enabled, getLocation, subscribeLocation]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && (e.key === "Q" || e.key === "q")) {
-        e.preventDefault();
-        setOpen((o) => !o);
-      }
+    if (!enabled) setOpen(false);
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const matchesToggle = (e: KeyboardEvent): boolean => {
+      if (e.metaKey || e.repeat) return false;
+      // Primary: Control+Shift+F (F = Flow QA). Use Control, not Command on Mac.
+      if (e.ctrlKey && e.shiftKey && !e.altKey && e.code === "KeyF") return true;
+      // Alternate: Control+Shift+` (US Backquote); UK/EU may use different physical keys.
+      if (e.ctrlKey && e.shiftKey && !e.altKey && e.code === "Backquote") return true;
+      // Fallback: Control+Alt+F (no Shift) — avoids Shift+dead-key issues on some layouts.
+      if (e.ctrlKey && e.altKey && !e.shiftKey && e.code === "KeyF") return true;
+      return false;
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+
+    const onKey = (e: KeyboardEvent) => {
+      if (!matchesToggle(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen((o) => !o);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled) {
+      if (typeof window !== "undefined") {
+        delete (window as unknown as { __FLOW_QA_TOGGLE__?: () => void }).__FLOW_QA_TOGGLE__;
+      }
+      return;
+    }
+    if (typeof window === "undefined") return;
+    (window as unknown as { __FLOW_QA_TOGGLE__?: () => void }).__FLOW_QA_TOGGLE__ = () =>
+      setOpen((o) => !o);
+    console.info(
+      "[Flow QA] Toggle: Control+Shift+F (or Control+Shift+`, or Control+Option+F) — or run __FLOW_QA_TOGGLE__() in the console — or use the corner button."
+    );
+    return () => {
+      delete (window as unknown as { __FLOW_QA_TOGGLE__?: () => void }).__FLOW_QA_TOGGLE__;
+    };
+  }, [enabled]);
 
   const bundle = workspace?.bundle ?? null;
   const gitCtx = workspace?.gitContext ?? null;
@@ -142,16 +182,17 @@ export function FlowQAShell(props: FlowQAShellProps) {
   );
 
   useEffect(() => {
-    if (!bundle) return;
+    if (!enabled || !bundle) return;
     for (const sid of matchingStepIds) markVisited(sid);
-  }, [bundle, matchingStepIds, markVisited]);
+  }, [enabled, bundle, matchingStepIds, markVisited]);
 
   useEffect(() => {
+    if (!enabled) return;
     setFacadeModeOnApp(appViewportRef.current, facadeMode === "empty_state" ? "empty_state" : "off");
     if (facadeMode !== "copy_review") {
       restoreCopyPatches(appViewportRef.current, copyPatches);
     }
-  }, [facadeMode, appViewportRef, copyPatches]);
+  }, [enabled, facadeMode, appViewportRef, copyPatches]);
 
   const flowStepRoute = useCallback(
     (flowId: string, stepId: string) => {
@@ -310,7 +351,7 @@ export function FlowQAShell(props: FlowQAShellProps) {
   const sidebarRootRef = useRef<Root | null>(null);
 
   useLayoutEffect(() => {
-    if (!open) {
+    if (!enabled || !open) {
       sidebarRootRef.current?.render(<div style={{ display: "none" }} />);
       return;
     }
@@ -371,6 +412,7 @@ export function FlowQAShell(props: FlowQAShellProps) {
       />
     );
   }, [
+    enabled,
     open,
     view,
     changed,
@@ -401,6 +443,19 @@ export function FlowQAShell(props: FlowQAShellProps) {
     onApplyCopy,
     onRecordCorrection,
   ]);
+
+  if (!enabled) {
+    return (
+      <div
+        ref={appViewportRef}
+        data-flow-qa-app-inner
+        data-flow-qa-disabled="1"
+        style={{ minHeight: "100vh" }}
+      >
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: "100vh" }}>
@@ -452,7 +507,7 @@ export function FlowQAShell(props: FlowQAShellProps) {
           }}
           onClick={() => setOpen(true)}
         >
-          Flow QA (Ctrl+Shift+Q)
+          Flow QA (Ctrl+Shift+F)
         </button>
       )}
     </div>

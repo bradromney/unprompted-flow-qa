@@ -91,6 +91,11 @@ export interface MountFlowQAOptions {
   /** Required: maps routes to source files for git → flow suggestions */
   routeConfig: RouteConfig;
   getLocation: () => { pathname: string; search: string };
+  /**
+   * When false, Flow QA does not load assets, register shortcuts, or show UI (host can toggle after auth).
+   * @default true
+   */
+  enabled?: boolean;
   subscribeLocation?: (cb: () => void) => () => void;
   /** Base URL for fetching /flow-qa/* static assets (default: "") */
   flowQaAssetBase?: string;

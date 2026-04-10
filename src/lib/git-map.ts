@@ -1,5 +1,6 @@
 import type { Flow, FlowBundle, RouteConfig, RouteConfigEntry } from "./types";
 import type { GitContextFile } from "./types";
+import { matchStepPath } from "./match-url";
 
 export function fileTouchesRoute(entry: RouteConfigEntry, changedFile: string): boolean {
   const norm = (p: string) => p.replace(/^\.\//, "");
@@ -45,8 +46,6 @@ export function flowTouchesRoutePath(flow: Flow, steps: FlowBundle["steps"], rou
   }
   return false;
 }
-
-import { matchStepPath } from "./match-url";
 
 /** Build a concrete pathname from a route pattern for matching step globs */
 export function routePathToExamplePath(routePath: string): string {

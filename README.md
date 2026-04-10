@@ -67,7 +67,9 @@ Use **React Router**’s `useLocation` inside a tiny wrapper if you prefer subsc
 
 ### 3. Keyboard shortcut
 
-**Ctrl+Shift+Q** toggles the sidebar.
+Toggle the sidebar with **Control+Shift+F** (use **Control ⌃**, not **Command ⌘**, on Mac). Alternates: **Control+Shift+`** (US backtick) or **Control+Option+F** if your keyboard layout makes Shift+` awkward. You can also run **`__FLOW_QA_TOGGLE__()`** in the browser console. Avoid **⌘⇧Q** on macOS — that logs you out.
+
+**Flow QA only loads in Vite dev** (`npm run dev`). It is not included in production or `vite preview` builds.
 
 ## Package layout
 
