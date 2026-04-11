@@ -1,7 +1,7 @@
 import type { Issue, StepCorrection } from "./types";
 
 const LS_PREFIX = "flowqa:";
-const IDB_NAME = "unprompted-flow-qa";
+const IDB_NAME = "@unprompted/flow-qa";
 const IDB_STORE = "blobs";
 
 const META_KEYS = {
