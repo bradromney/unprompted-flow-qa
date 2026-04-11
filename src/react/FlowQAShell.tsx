@@ -404,6 +404,13 @@ export function FlowQAShell(props: FlowQAShellProps) {
       const mount = document.createElement("div");
       mount.setAttribute("data-flow-qa-react-root", "1");
       mount.style.cssText = "height:100%;min-height:0;min-width:0;display:flex;flex-direction:column";
+      // Prevent host app keyboard shortcuts from stealing keystrokes in form fields
+      shadow.addEventListener("keydown", (e: Event) => {
+        const t = e.target as HTMLElement | null;
+        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")) {
+          e.stopPropagation();
+        }
+      });
       shadow.appendChild(mount);
       sidebarRootRef.current = createRoot(mount);
     } else if (!sidebarRootRef.current) {
