@@ -1063,9 +1063,18 @@ function SidebarInner(props: {
                 ← Back
               </button>
               <h3>{activeFlow.title}</h3>
-              {activeFlow.strategic_intent && (
-                <div className="fq-muted" style={{ marginBottom: 6 }}>{activeFlow.strategic_intent}</div>
-              )}
+              {activeFlow.strategic_intent && (() => {
+                const si = activeFlow.strategic_intent;
+                const short = si.length > 80 ? si.slice(0, 77) + "…" : si;
+                return si.length > 80 ? (
+                  <details style={{ marginBottom: 6 }}>
+                    <summary className="fq-muted" style={{ cursor: "pointer", listStyle: "none" }}>{short}</summary>
+                    <div className="fq-muted" style={{ marginTop: 2 }}>{si}</div>
+                  </details>
+                ) : (
+                  <div className="fq-muted" style={{ marginBottom: 6 }}>{si}</div>
+                );
+              })()}
               <div className="fq-row" style={{ marginBottom: 6 }}>
                 {activeFlow.segment && <span className="fq-chip">{activeFlow.segment}</span>}
                 {activeFlow.eval_dimension && <span className="fq-chip">{activeFlow.eval_dimension}</span>}
@@ -1096,10 +1105,14 @@ function SidebarInner(props: {
 
             {/* Step checklist */}
             <div className="fq-checklist">
-              {activeFlow.steps.map((sid, idx) => {
+              {(() => {
+                // Only the first matching step in this flow gets "You're here"
+                const firstActiveIdx = activeFlow.steps.findIndex((sid) => matchingStepIds.includes(sid));
+                return activeFlow.steps.map((sid, idx) => {
                 const st = bundle.steps[sid];
                 if (!st) return null;
-                const isActive = matchingStepIds.includes(sid);
+                const isOnThisPage = matchingStepIds.includes(sid);
+                const isActive = isOnThisPage && idx === firstActiveIdx; // only first match
                 const isDone = !!visited[sid];
                 const isStale = stale.has(sid);
                 const isNext = idx === nextUnvisitedIdx && !isActive;
@@ -1135,7 +1148,6 @@ function SidebarInner(props: {
                         {st.instructions ?? sid}
                         {isActive && <span style={{ color: "var(--fq-accent)", marginLeft: 6, fontSize: 11 }}>● You’re here</span>}
                         {isStale && !isActive && <span className="fq-stale-badge">↻ Changed</span>}
-                        {isNext && !isStale && <span style={{ color: "var(--fq-warn)", marginLeft: 6, fontSize: 11 }}>→ Up next</span>}
                       </div>
 
                       {/* Inline strategic context — truncated, expandable */}
@@ -1183,7 +1195,8 @@ function SidebarInner(props: {
                     </div>
                   </div>
                 );
-              })}
+              });
+              })()}
             </div>
 
             {/* Assumptions tested — compact */}
