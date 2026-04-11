@@ -67,11 +67,20 @@ export function saveJson(key: string, value: unknown): void {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-export function getVisitedSteps(): Record<string, true> {
-  return loadJson(META_KEYS.visitedSteps, {});
+/**
+ * Visited steps now store review timestamps (epoch ms).
+ * Legacy format (boolean `true`) is migrated to 0 = "reviewed before timestamps existed."
+ */
+export function getVisitedSteps(): Record<string, number> {
+  const raw = loadJson<Record<string, true | number>>(META_KEYS.visitedSteps, {});
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    out[k] = typeof v === "number" ? v : 0;
+  }
+  return out;
 }
 
-export function setVisitedSteps(m: Record<string, true>): void {
+export function setVisitedSteps(m: Record<string, number>): void {
   saveJson(META_KEYS.visitedSteps, m);
 }
 

@@ -7,6 +7,8 @@ import {
   assumptionsForFlows,
   changedRoutes,
   flowsCoveringChangedRoutes,
+  staleStepIds,
+  strategicGaps,
 } from "../lib/git-map";
 import { findMatchingStepIds } from "../lib/match-url";
 import {
@@ -69,7 +71,7 @@ export function FlowQAShell(props: FlowQAShellProps) {
   const [viewport, setViewport] = useState<keyof typeof VIEWPORT_WIDTH>("full");
   const [view, setView] = useState<"home" | "flow" | "issues">("home");
   const [activeFlowId, setActiveFlowId] = useState<string | null>(null);
-  const [visited, setVisited] = useState<Record<string, true>>(getVisitedSteps);
+  const [visited, setVisited] = useState<Record<string, number>>(getVisitedSteps);
   const [notes, setNotes] = useState<Record<string, string>>(getStepNotes);
   const [issues, setIssuesState] = useState<Issue[]>(getIssues);
   const [facadeMode, setFacadeModeState] = useState<FacadeMode>(getFacadeMode);
@@ -165,6 +167,25 @@ export function FlowQAShell(props: FlowQAShellProps) {
   );
   const hotAssumptions = useMemo(() => assumptionsForFlows(hotFlows), [hotFlows]);
 
+  const [selectedSegment, setSelectedSegment] = useState<string | null>(null);
+
+  const segments = useMemo(() => {
+    if (!bundle) return [];
+    const s = new Set<string>();
+    for (const f of bundle.flows) if (f.segment?.trim()) s.add(f.segment.trim());
+    return [...s].sort();
+  }, [bundle]);
+
+  const stale = useMemo(
+    () => (bundle ? staleStepIds(bundle, visited, gitCtx, routeConfig) : new Set<string>()),
+    [bundle, visited, gitCtx, routeConfig]
+  );
+
+  const gaps = useMemo(
+    () => (bundle ? strategicGaps(bundle) : null),
+    [bundle]
+  );
+
   const activeFlow = bundle?.flows.find((f) => f.id === activeFlowId) ?? null;
 
   const matchingStepIds = useMemo(() => {
@@ -177,11 +198,12 @@ export function FlowQAShell(props: FlowQAShellProps) {
     setVisited((prev) => {
       let next = prev;
       let changed = false;
+      const now = Date.now();
       for (const sid of matchingStepIds) {
         if (!next[sid]) {
           if (!changed) next = { ...prev };
           changed = true;
-          next[sid] = true;
+          next[sid] = now;
         }
       }
       if (changed) setVisitedSteps(next);
@@ -226,6 +248,19 @@ export function FlowQAShell(props: FlowQAShellProps) {
     setNotes(next);
     setStepNotes(next);
   };
+
+  const onToggleVisited = useCallback((stepId: string) => {
+    setVisited((prev) => {
+      const next = { ...prev };
+      if (next[stepId]) {
+        delete next[stepId];
+      } else {
+        next[stepId] = Date.now();
+      }
+      setVisitedSteps(next);
+      return next;
+    });
+  }, []);
 
   const captureScreenshotKey = async (): Promise<string> => {
     const el = appViewportRef.current;
@@ -387,7 +422,13 @@ export function FlowQAShell(props: FlowQAShellProps) {
         bundle={bundle}
         pathname={pathname}
         matchingStepIds={matchingStepIds}
+        stale={stale}
+        gaps={gaps}
+        segments={segments}
+        selectedSegment={selectedSegment}
+        setSelectedSegment={setSelectedSegment}
         issues={issues}
+
         issueTypeCounts={issueTypeCounts}
         relatedGroups={relatedGroups}
         activeFlow={activeFlow}
@@ -396,6 +437,7 @@ export function FlowQAShell(props: FlowQAShellProps) {
         visited={visited}
         notes={notes}
         onSaveStepNote={onSaveStepNote}
+        onToggleVisited={onToggleVisited}
         viewport={viewport}
         setViewport={setViewport}
         issueDraft={issueDraft}
@@ -425,6 +467,10 @@ export function FlowQAShell(props: FlowQAShellProps) {
     bundle,
     pathname,
     matchingStepIds,
+    stale,
+    gaps,
+    segments,
+    selectedSegment,
     issues,
     issueTypeCounts,
     relatedGroups,
@@ -527,15 +573,21 @@ function SidebarInner(props: {
   bundle: LoadedWorkspace["bundle"] | null;
   pathname: string;
   matchingStepIds: string[];
+  stale: Set<string>;
+  gaps: ReturnType<typeof strategicGaps> | null;
+  segments: string[];
+  selectedSegment: string | null;
+  setSelectedSegment: (s: string | null) => void;
   issues: Issue[];
   issueTypeCounts: Record<IssueType, number>;
   relatedGroups: string[][];
   activeFlow: Flow | null;
   activeFlowId: string | null;
   setActiveFlowId: (id: string | null) => void;
-  visited: Record<string, true>;
+  visited: Record<string, number>;
   notes: Record<string, string>;
   onSaveStepNote: (sid: string, t: string) => void;
+  onToggleVisited: (sid: string) => void;
   viewport: string;
   setViewport: (v: keyof typeof VIEWPORT_WIDTH) => void;
   issueDraft: {
@@ -583,6 +635,11 @@ function SidebarInner(props: {
     bundle,
     pathname,
     matchingStepIds,
+    stale,
+    gaps,
+    segments,
+    selectedSegment,
+    setSelectedSegment,
     issues,
     issueTypeCounts,
     relatedGroups,
@@ -592,6 +649,7 @@ function SidebarInner(props: {
     visited,
     notes,
     onSaveStepNote,
+    onToggleVisited,
     viewport,
     setViewport,
     issueDraft,
@@ -660,16 +718,96 @@ function SidebarInner(props: {
           </div>
         )}
 
+        {/* STRATEGY HEALTH BAR — always visible */}
+        {(() => {
+          const totalSteps = Object.keys(bundle.steps).length;
+          const staleCount = stale.size;
+          const gapCount = gaps ? gaps.flowsMissingIntent.length : 0;
+          const evidenceIssues = issues.filter((i) => i.type === "assumption_evidence");
+          const testedCount = new Set(evidenceIssues.map((i) => {
+            const step = bundle.steps[i.stepId];
+            return step?.assumption_dependency;
+          }).filter(Boolean)).size;
+          const totalAssumptions = gaps?.totalAssumptions.length ?? 0;
+          const allVisitedCount = Object.keys(visited).length;
+          const totalFlowSteps = bundle.flows.reduce((n, f) => n + f.steps.length, 0);
+
+          // Determine overall health
+          const hasGaps = gapCount > 0;
+          const hasStale = staleCount > 0;
+          const hasUntested = totalAssumptions > 0 && testedCount < totalAssumptions;
+          const allGood = !hasGaps && !hasStale && !hasUntested && allVisitedCount >= totalFlowSteps;
+
+          return (
+            <div className="fq-strategy-bar">
+              <div className="fq-strategy-title">Strategy</div>
+              {allGood ? (
+                <span className="fq-stat">
+                  <span className="fq-stat-dot fq-dot-green" />All reviewed, coverage complete
+                </span>
+              ) : (
+                <>
+                  {hasStale && (
+                    <span className="fq-stat">
+                      <span className="fq-stat-dot fq-dot-amber" />{staleCount} stale
+                    </span>
+                  )}
+                  {hasGaps && (
+                    <span className="fq-stat">
+                      <span className="fq-stat-dot fq-dot-red" />{gapCount} missing intent
+                    </span>
+                  )}
+                  {hasUntested && (
+                    <span className="fq-stat">
+                      <span className="fq-stat-dot fq-dot-amber" />{testedCount}/{totalAssumptions} assumptions tested
+                    </span>
+                  )}
+                  {!hasStale && !hasGaps && !hasUntested && allVisitedCount < totalFlowSteps && (
+                    <span className="fq-stat">
+                      <span className="fq-stat-dot fq-dot-muted" />{totalFlowSteps - allVisitedCount} steps unvisited
+                    </span>
+                  )}
+                </>
+              )}
+              {/* Segment picker */}
+              {segments.length > 1 && (
+                <div className="fq-segment-picker" style={{ width: "100%", marginTop: 4 }}>
+                  <button
+                    type="button"
+                    className={`fq-segment-btn ${selectedSegment === null ? "fq-segment-btn-active" : ""}`}
+                    onClick={() => setSelectedSegment(null)}
+                  >All</button>
+                  {segments.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`fq-segment-btn ${selectedSegment === s ? "fq-segment-btn-active" : ""}`}
+                      onClick={() => setSelectedSegment(selectedSegment === s ? null : s)}
+                    >{s}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {view === "home" && (() => {
+          // Segment filter
+          const segFlows = selectedSegment
+            ? bundle.flows.filter((f) => f.segment === selectedSegment)
+            : bundle.flows;
           // Context-aware: find flows matching current page
-          const flowsHere = bundle.flows.filter((f) =>
+          const flowsHere = segFlows.filter((f) =>
             f.steps.some((sid) => matchingStepIds.includes(sid))
           );
-          // Primary suggestion: hot flow on this page > any flow on this page > hot flow anywhere
+          // Prioritize: stale flow on this page > hot flow on this page > any flow on this page > hot flow > stale flow
+          const flowHasStaleSteps = (f: Flow) => f.steps.some((sid) => stale.has(sid));
           const suggestedFlow =
+            flowsHere.find((f) => flowHasStaleSteps(f)) ??
             flowsHere.find((f) => hotFlows.some((h) => h.id === f.id)) ??
             flowsHere[0] ??
-            hotFlows[0] ??
+            segFlows.find((f) => flowHasStaleSteps(f)) ??
+            hotFlows.find((f) => !selectedSegment || f.segment === selectedSegment) ??
             null;
           // Observations relevant to current page
           const pageObservations = observations.filter((o) => {
@@ -691,32 +829,40 @@ function SidebarInner(props: {
           return (
           <>
             {/* PRIMARY CTA — what to do right now */}
-            {suggestedFlow && (
+            {suggestedFlow && (() => {
+              const sugStaleCount = suggestedFlow.steps.filter((s) => stale.has(s)).length;
+              const sugVisitedCount = suggestedFlow.steps.filter((s) => visited[s]).length;
+              const isStale = sugStaleCount > 0;
+              const label = isStale
+                ? "Re-review — code changed"
+                : flowsHere.includes(suggestedFlow)
+                ? "Test this page"
+                : "Suggested flow";
+
+              return (
               <div
                 className="fq-card"
-                style={{ borderLeft: "3px solid #58a6ff", cursor: "pointer" }}
+                style={{ borderLeft: `3px solid ${isStale ? "#d29922" : "#58a6ff"}`, cursor: "pointer" }}
                 onClick={() => {
                   setActiveFlowId(suggestedFlow.id);
                   setView("flow");
                 }}
               >
                 <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>
-                  {flowsHere.includes(suggestedFlow) ? `Test this page` : `Suggested flow`}
+                  {label}
                 </div>
                 <strong style={{ fontSize: 15 }}>{suggestedFlow.title}</strong>
-                {suggestedFlow.strategic_intent && (
-                  <div style={{ marginTop: 4, fontSize: 13 }}>
-                    {suggestedFlow.strategic_intent}
-                  </div>
-                )}
-                <div className="fq-row" style={{ marginTop: 8 }}>
-                  <button type="button" className="fq-btn fq-btn-primary" onClick={(e) => {
+                <div className="fq-row" style={{ marginTop: 6 }}>
+                  <button type="button" className={`fq-btn ${isStale ? "fq-btn" : "fq-btn-primary"}`} style={isStale ? { borderColor: "#d29922", color: "#d29922" } : {}} onClick={(e) => {
                     e.stopPropagation();
                     setActiveFlowId(suggestedFlow.id);
                     setView("flow");
                   }}>
-                    Start flow
+                    {isStale ? `Review ${sugStaleCount} stale` : "Start flow"}
                   </button>
+                  <span className="fq-muted" style={{ fontSize: 11 }}>
+                    {sugVisitedCount}/{suggestedFlow.steps.length} done
+                  </span>
                   {suggestedFlow.eval_dimension && (
                     <span className="fq-chip">{suggestedFlow.eval_dimension}</span>
                   )}
@@ -725,7 +871,8 @@ function SidebarInner(props: {
                   )}
                 </div>
               </div>
-            )}
+              );
+            })()}
 
             {/* CONTEXTUAL OBSERVATION — relevant to this page */}
             {pageObservations.length > 0 && (
@@ -806,14 +953,18 @@ function SidebarInner(props: {
               </div>
             )}
 
-            {/* ALL FLOWS — collapsed, secondary */}
+            {/* ALL FLOWS — collapsed, segment-filtered */}
             <details className="fq-collapse">
               <summary style={{ cursor: "pointer" }}>
-                All flows ({bundle.flows.length})
+                All flows ({segFlows.length}{selectedSegment ? ` · ${selectedSegment}` : ""})
               </summary>
               <div className="fq-list" style={{ marginTop: 8 }}>
-                {[...bundle.flows]
+                {[...segFlows]
                   .sort((a, b) => {
+                    // Stale first, then hot, then here, then alpha
+                    const aStale = a.steps.some((s) => stale.has(s)) ? 0 : 1;
+                    const bStale = b.steps.some((s) => stale.has(s)) ? 0 : 1;
+                    if (aStale !== bStale) return aStale - bStale;
                     const ah = hotFlows.some((h) => h.id === a.id) ? 0 : 1;
                     const bh = hotFlows.some((h) => h.id === b.id) ? 0 : 1;
                     if (ah !== bh) return ah - bh;
@@ -823,7 +974,7 @@ function SidebarInner(props: {
                   })
                   .map((f) => {
                     const visitedCount = f.steps.filter((s) => visited[s]).length;
-                    const issueCount = issues.filter((i) => i.flowId === f.id).length;
+                    const staleCount = f.steps.filter((s) => stale.has(s)).length;
                     const hot = hotFlows.some((h) => h.id === f.id);
                     const here = flowsHere.some((fh) => fh.id === f.id);
                     return (
@@ -838,12 +989,14 @@ function SidebarInner(props: {
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                           <strong>{f.title}</strong>
                           <span>
-                            {hot && <span className="fq-chip fq-chip-hot">Changed</span>}
+                            {staleCount > 0 && <span className="fq-chip fq-chip-hot">{staleCount} stale</span>}
+                            {hot && !staleCount && <span className="fq-chip fq-chip-hot">Changed</span>}
                             {here && <span className="fq-chip" style={{ marginLeft: 4 }}>Here</span>}
                           </span>
                         </div>
                         <div className="fq-muted">
-                          {visitedCount}/{f.steps.length} steps · {issueCount} issues
+                          {visitedCount}/{f.steps.length} done
+                          {f.segment && <span style={{ marginLeft: 6 }}>· {f.segment}</span>}
                           {f.eval_dimension && (
                             <span className="fq-chip" style={{ marginLeft: 6 }}>
                               {f.eval_dimension}
@@ -912,169 +1065,264 @@ function SidebarInner(props: {
           );
         })()}
 
-        {view === "flow" && activeFlow && (
-          <div className="fq-card">
-            <button type="button" className="fq-btn" style={{ marginBottom: 8 }} onClick={() => setView("home")}>
-              ← Back
-            </button>
-            <h3 style={{ margin: "0 0 6px" }}>{activeFlow.title}</h3>
-            {activeFlow.strategic_intent && <div className="fq-muted">{activeFlow.strategic_intent}</div>}
-            <div className="fq-row" style={{ margin: "8px 0" }}>
-              {activeFlow.segment && <span className="fq-chip">segment: {activeFlow.segment}</span>}
-              {activeFlow.jtbd && <span className="fq-chip">jtbd</span>}
-              {activeFlow.eval_dimension && <span className="fq-chip">{activeFlow.eval_dimension}</span>}
+        {view === "flow" && activeFlow && (() => {
+          const visitedCount = activeFlow.steps.filter((s) => visited[s]).length;
+          const totalSteps = activeFlow.steps.length;
+          const pct = totalSteps > 0 ? Math.round((visitedCount / totalSteps) * 100) : 0;
+          // Find the current active step index and next unvisited step
+          const staleInFlow = activeFlow.steps.filter((sid) => stale.has(sid)).length;
+          const activeStepIdx = activeFlow.steps.findIndex((sid) => matchingStepIds.includes(sid));
+          // Next step: prioritize stale steps, then unvisited
+          const nextStaleIdx = activeFlow.steps.findIndex((sid) => stale.has(sid) && !matchingStepIds.includes(sid));
+          const nextUnvisitedIdx = nextStaleIdx >= 0
+            ? nextStaleIdx
+            : activeFlow.steps.findIndex((sid) => !visited[sid]);
+          const nextStep = nextUnvisitedIdx >= 0 ? bundle.steps[activeFlow.steps[nextUnvisitedIdx]] : null;
+          // Expand notes for a step
+          const [expandedNotes, setExpandedNotes] = React.useState<string | null>(null);
+
+          return (
+          <>
+            {/* Flow header — compact */}
+            <div className="fq-flow-header-compact">
+              <button type="button" className="fq-btn" style={{ marginBottom: 6 }} onClick={() => setView("home")}>
+                ← Back
+              </button>
+              <h3>{activeFlow.title}</h3>
+              {activeFlow.strategic_intent && (
+                <div className="fq-muted" style={{ marginBottom: 6 }}>{activeFlow.strategic_intent}</div>
+              )}
+              <div className="fq-row" style={{ marginBottom: 6 }}>
+                {activeFlow.segment && <span className="fq-chip">{activeFlow.segment}</span>}
+                {activeFlow.eval_dimension && <span className="fq-chip">{activeFlow.eval_dimension}</span>}
+              </div>
             </div>
+
+            {/* Progress bar */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div className="fq-progress-bar" style={{ flex: 1 }}>
+                <div className="fq-progress-fill" style={{ width: `${pct}%` }} />
+              </div>
+              <span className="fq-muted" style={{ fontSize: 11, whiteSpace: "nowrap" }}>
+                {visitedCount}/{totalSteps}
+                {staleInFlow > 0 && <span style={{ color: "var(--fq-warn)", marginLeft: 4 }}>· {staleInFlow} stale</span>}
+              </span>
+            </div>
+
+            {/* Next step prompt — guide to what’s next */}
+            {nextStep && nextUnvisitedIdx !== activeStepIdx && (
+              <div className="fq-next-prompt" title="Navigate to this step">
+                <span style={{ color: "var(--fq-warn)", fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>Next</span>
+                <span style={{ flex: 1, fontSize: 12 }}>{nextStep.instructions}</span>
+                {nextStep.urlPattern && (
+                  <code style={{ fontSize: 10, color: "var(--fq-muted)" }}>{nextStep.urlPattern}</code>
+                )}
+              </div>
+            )}
+
+            {/* Step checklist */}
+            <div className="fq-checklist">
+              {activeFlow.steps.map((sid, idx) => {
+                const st = bundle.steps[sid];
+                if (!st) return null;
+                const isActive = matchingStepIds.includes(sid);
+                const isDone = !!visited[sid];
+                const isStale = stale.has(sid);
+                const isNext = idx === nextUnvisitedIdx && !isActive;
+                const showContext = isActive || isStale; // Show strategic context for current or stale step
+                const hasNotes = !!(notes[sid]?.trim());
+                const notesOpen = expandedNotes === sid;
+
+                return (
+                  <div
+                    key={sid}
+                    className={`fq-check-step ${isActive ? "fq-check-step-active" : ""} ${isNext ? "fq-check-step-next" : ""}`}
+                  >
+                    {/* Checkbox */}
+                    <div
+                      className={`fq-check-box ${isDone && !isStale ? "fq-check-box-done" : ""} ${isStale ? "fq-check-box-stale" : ""} ${isActive && !isDone && !isStale ? "fq-check-box-active" : ""}`}
+                      onClick={() => onToggleVisited(sid)}
+                      title={isDone ? "Mark incomplete" : "Mark complete"}
+                    >
+                      {isDone && !isStale && (
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                          <path d="M2.5 6L5 8.5L9.5 3.5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                      {isStale && (
+                        <span style={{ fontSize: 10, color: "var(--fq-warn)" }}>↻</span>
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div className="fq-check-content">
+                      <div className={`fq-check-instruction ${isDone && !isActive ? "fq-check-instruction-done" : ""}`}>
+                        <span style={{ color: "var(--fq-muted)", marginRight: 4 }}>{idx + 1}.</span>
+                        {st.instructions ?? sid}
+                        {isActive && <span style={{ color: "var(--fq-accent)", marginLeft: 6, fontSize: 11 }}>● You’re here</span>}
+                        {isStale && !isActive && <span className="fq-stale-badge">↻ Changed</span>}
+                        {isNext && !isStale && <span style={{ color: "var(--fq-warn)", marginLeft: 6, fontSize: 11 }}>→ Up next</span>}
+                      </div>
+
+                      {/* Inline strategic context for current step */}
+                      {showContext && (st.success_looks_like || st.failure_signal || st.assumption_dependency) && (
+                        <div className="fq-check-context">
+                          {st.success_looks_like && (
+                            <div><span style={{ color: "var(--fq-ok)" }}>✓</span> {st.success_looks_like}</div>
+                          )}
+                          {st.failure_signal && (
+                            <div><span style={{ color: "var(--fq-danger)" }}>✗</span> {st.failure_signal}</div>
+                          )}
+                          {st.assumption_dependency && (
+                            <div><span style={{ color: "var(--fq-warn)" }}>?</span> {st.assumption_dependency}</div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Notes toggle */}
+                      <div style={{ marginTop: 2 }}>
+                        <button
+                          type="button"
+                          className="fq-notes-toggle"
+                          onClick={() => setExpandedNotes(notesOpen ? null : sid)}
+                        >
+                          {hasNotes ? "Edit note" : notesOpen ? "Close" : "+ Note"}
+                        </button>
+                        {notesOpen && (
+                          <textarea
+                            className="fq-textarea"
+                            style={{ minHeight: 48, marginTop: 4 }}
+                            placeholder="What did you observe?"
+                            value={notes[sid] ?? ""}
+                            onChange={(e) => onSaveStepNote(sid, e.target.value)}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Assumptions tested — compact */}
             {!!activeFlow.assumptions_tested?.length && (
-              <details open>
-                <summary className="fq-muted">Assumptions tested</summary>
-                <ul>
-                  {activeFlow.assumptions_tested.map((a) => (
-                    <li key={a}>{a}</li>
+              <details className="fq-collapse">
+                <summary>Assumptions being tested ({activeFlow.assumptions_tested.length})</summary>
+                <div style={{ marginTop: 6 }}>
+                  {activeFlow.assumptions_tested.map((a, i) => (
+                    <div key={i} style={{ fontSize: 12, marginBottom: 4, paddingLeft: 8, borderLeft: "2px solid var(--fq-warn)" }}>{a}</div>
                   ))}
-                </ul>
+                </div>
               </details>
             )}
 
-            <div className="fq-section-title" style={{ marginTop: 12 }}>
-              Steps
-            </div>
-            {activeFlow.steps.map((sid) => {
-              const st = bundle.steps[sid];
-              if (!st) return null;
-              const isMatch = matchingStepIds.includes(sid);
-              const isVis = !!visited[sid];
-              return (
-                <div key={sid} className={`fq-step ${isVis ? "fq-step-done" : ""}`}>
-                  <div>
-                    <strong>{st.instructions ?? sid}</strong>{" "}
-                    {isMatch && <span className="fq-chip fq-chip-hot">active</span>}
+            {/* Log issue — collapsed by default */}
+            <details className="fq-collapse">
+              <summary>Log an issue</summary>
+              <div style={{ marginTop: 8 }}>
+                {currentStepForIssue?.assumption_dependency && (
+                  <div style={{ fontSize: 12, marginBottom: 8, padding: "6px 8px", background: "rgba(210,153,34,0.08)", borderRadius: 4 }}>
+                    <span style={{ color: "var(--fq-warn)" }}>Assumption:</span> {currentStepForIssue.assumption_dependency}
                   </div>
-                  <div className="fq-muted">
-                    <code>{st.urlPattern}</code>
-                  </div>
-                  <details>
-                    <summary className="fq-muted">Expected experience</summary>
-                    {st.expected_emotion && <div>Emotion: {st.expected_emotion}</div>}
-                    {st.success_looks_like && <div>Success: {st.success_looks_like}</div>}
-                    {st.failure_signal && <div>Failure signal: {st.failure_signal}</div>}
-                    {st.assumption_dependency && <div>Assumption: {st.assumption_dependency}</div>}
-                  </details>
-                  <div className="fq-label">Notes</div>
-                  <textarea
-                    className="fq-textarea"
-                    value={notes[sid] ?? ""}
-                    onChange={(e) => onSaveStepNote(sid, e.target.value)}
-                  />
+                )}
+                <div className="fq-type-grid">
+                  {(
+                    [
+                      ["bug", "Bug"],
+                      ["ux_friction", "UX"],
+                      ["strategic_gap", "Strategic"],
+                      ["assumption_evidence", "Evidence"],
+                    ] as const
+                  ).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      className="fq-type-btn"
+                      data-active={issueDraft.type === val}
+                      onClick={() => setIssueDraft((d) => ({ ...d, type: val }))}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
-              );
-            })}
-
-            <div className="fq-section-title" style={{ marginTop: 12 }}>
-              Log issue
-            </div>
-            {currentStepForIssue?.assumption_dependency && (
-              <div className="fq-card" style={{ marginBottom: 8 }}>
-                <div className="fq-label">Assumption in play</div>
-                <div>{currentStepForIssue.assumption_dependency}</div>
-              </div>
-            )}
-            <div className="fq-type-grid">
-              {(
-                [
-                  ["bug", "Bug"],
-                  ["ux_friction", "UX friction"],
-                  ["strategic_gap", "Strategic gap"],
-                  ["assumption_evidence", "Assumption evidence"],
-                ] as const
-              ).map(([val, label]) => (
-                <button
-                  key={val}
-                  type="button"
-                  className="fq-type-btn"
-                  data-active={issueDraft.type === val}
-                  onClick={() => setIssueDraft((d) => ({ ...d, type: val }))}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            {issueDraft.type === "assumption_evidence" && (
-              <>
-                <div className="fq-label">Evidence direction</div>
+                {issueDraft.type === "assumption_evidence" && (
+                  <>
+                    <div className="fq-label" style={{ marginTop: 6 }}>Direction</div>
+                    <select
+                      className="fq-select"
+                      value={issueDraft.evidence_direction}
+                      onChange={(e) =>
+                        setIssueDraft((d) => ({
+                          ...d,
+                          evidence_direction: e.target.value as Issue["evidence_direction"],
+                        }))
+                      }
+                    >
+                      <option value="">—</option>
+                      <option value="supports">supports</option>
+                      <option value="contradicts">contradicts</option>
+                      <option value="ambiguous">ambiguous</option>
+                    </select>
+                  </>
+                )}
+                <div className="fq-label" style={{ marginTop: 6 }}>Severity</div>
                 <select
                   className="fq-select"
-                  value={issueDraft.evidence_direction}
+                  value={issueDraft.severity}
                   onChange={(e) =>
                     setIssueDraft((d) => ({
                       ...d,
-                      evidence_direction: e.target.value as Issue["evidence_direction"],
+                      severity: e.target.value as Issue["severity"],
                     }))
                   }
                 >
                   <option value="">—</option>
-                  <option value="supports">supports</option>
-                  <option value="contradicts">contradicts</option>
-                  <option value="ambiguous">ambiguous</option>
+                  <option value="critical">critical</option>
+                  <option value="major">major</option>
+                  <option value="minor">minor</option>
+                  <option value="observation">observation</option>
                 </select>
-              </>
-            )}
-            <div className="fq-label">Severity</div>
-            <select
-              className="fq-select"
-              value={issueDraft.severity}
-              onChange={(e) =>
-                setIssueDraft((d) => ({
-                  ...d,
-                  severity: e.target.value as Issue["severity"],
-                }))
-              }
-            >
-              <option value="">—</option>
-              <option value="critical">critical</option>
-              <option value="major">major</option>
-              <option value="minor">minor</option>
-              <option value="observation">observation</option>
-            </select>
-            <div className="fq-label">Notes</div>
-            <textarea
-              className="fq-textarea"
-              value={issueDraft.notes}
-              onChange={(e) => setIssueDraft((d) => ({ ...d, notes: e.target.value }))}
-            />
-            <div className="fq-label">Strategic note (optional)</div>
-            <textarea
-              className="fq-textarea"
-              value={issueDraft.strategic_note}
-              onChange={(e) => setIssueDraft((d) => ({ ...d, strategic_note: e.target.value }))}
-            />
-            <div className="fq-label">Component name (optional)</div>
-            <input
-              className="fq-input"
-              value={issueDraft.componentName}
-              onChange={(e) => setIssueDraft((d) => ({ ...d, componentName: e.target.value }))}
-            />
-            <div className="fq-label">Selector (optional)</div>
-            <input
-              className="fq-input"
-              value={issueDraft.selector}
-              onChange={(e) => setIssueDraft((d) => ({ ...d, selector: e.target.value }))}
-            />
-            <div className="fq-label">Pattern breadth N (optional)</div>
-            <input
-              className="fq-input"
-              value={issueDraft.patternBreadth}
-              onChange={(e) => setIssueDraft((d) => ({ ...d, patternBreadth: e.target.value }))}
-            />
-            <div className="fq-row" style={{ marginTop: 8 }}>
-              <button type="button" className="fq-btn fq-btn-primary" onClick={onLogIssue}>
-                Capture + log issue
-              </button>
-              <button type="button" className="fq-btn" onClick={onRecordCorrection}>
-                I’m on this step (correction)
-              </button>
-            </div>
-          </div>
-        )}
+                <div className="fq-label" style={{ marginTop: 6 }}>What happened?</div>
+                <textarea
+                  className="fq-textarea"
+                  style={{ minHeight: 56 }}
+                  value={issueDraft.notes}
+                  onChange={(e) => setIssueDraft((d) => ({ ...d, notes: e.target.value }))}
+                />
+                <details className="fq-collapse" style={{ marginTop: 4 }}>
+                  <summary>More fields</summary>
+                  <div style={{ marginTop: 6 }}>
+                    <div className="fq-label">Strategic note</div>
+                    <textarea
+                      className="fq-textarea"
+                      style={{ minHeight: 48 }}
+                      value={issueDraft.strategic_note}
+                      onChange={(e) => setIssueDraft((d) => ({ ...d, strategic_note: e.target.value }))}
+                    />
+                    <div className="fq-label">Component</div>
+                    <input
+                      className="fq-input"
+                      value={issueDraft.componentName}
+                      onChange={(e) => setIssueDraft((d) => ({ ...d, componentName: e.target.value }))}
+                    />
+                    <div className="fq-label">Selector</div>
+                    <input
+                      className="fq-input"
+                      value={issueDraft.selector}
+                      onChange={(e) => setIssueDraft((d) => ({ ...d, selector: e.target.value }))}
+                    />
+                  </div>
+                </details>
+                <div className="fq-row" style={{ marginTop: 8 }}>
+                  <button type="button" className="fq-btn fq-btn-primary" onClick={onLogIssue}>
+                    Log issue
+                  </button>
+                </div>
+              </div>
+            </details>
+          </>
+          );
+        })()}
 
         {view === "issues" && (
           <div className="fq-card">
