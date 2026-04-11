@@ -174,61 +174,6 @@ export function FlowQAShell(props: FlowQAShellProps) {
     };
   }, [enabled]);
 
-  // Session tracking: start/resume when activeFlowId changes
-  useEffect(() => {
-    if (!enabled || !activeFlowId) return;
-    setSessionState((prev) => {
-      const next = startOrResumeSession(prev, activeFlowId);
-      saveSessionState(next);
-      return next;
-    });
-  }, [enabled, activeFlowId]);
-
-  // Session tracking: dwell tick every 1s for steps on the current page
-  useEffect(() => {
-    if (!enabled || !open) return;
-    const TICK_MS = 1000;
-    const t = setInterval(() => {
-      setSessionState((prev) => {
-        if (!prev.activeSession) return prev;
-        let session = prev.activeSession;
-        // Record presence for each matching step in the active flow
-        for (const sid of matchingStepIds) {
-          session = recordStepPresence(session, sid, TICK_MS);
-        }
-        const next = { ...prev, activeSession: session };
-        saveSessionState(next);
-        return next;
-      });
-    }, TICK_MS);
-    return () => clearInterval(t);
-  }, [enabled, open, matchingStepIds]);
-
-  // Session resume: auto-select flow from persisted session on open
-  useEffect(() => {
-    if (!enabled || !open || activeFlowId) return;
-    const saved = loadSessionState();
-    if (saved.activeSession && !saved.activeSession.completed) {
-      setActiveFlowId(saved.activeSession.flowId);
-    }
-  }, [enabled, open]); // intentionally exclude activeFlowId to only run on open
-
-  // Session tracking: check completion when visited changes
-  useEffect(() => {
-    if (!enabled) return;
-    setSessionState((prev) => {
-      if (!prev.activeSession) return prev;
-      const flowId = prev.activeSession.flowId;
-      const flow = workspace?.bundle?.flows.find((f) => f.id === flowId);
-      if (!flow) return prev;
-      const session = checkSessionComplete(prev.activeSession, flow.steps, visited);
-      if (session === prev.activeSession) return prev;
-      const next = { ...prev, activeSession: session };
-      saveSessionState(next);
-      return next;
-    });
-  }, [enabled, visited, workspace]);
-
   const bundle = workspace?.bundle ?? null;
   const gitCtx = workspace?.gitContext ?? null;
   const observations = workspace?.observations ?? [];
@@ -299,6 +244,60 @@ export function FlowQAShell(props: FlowQAShellProps) {
       return changed ? next : prev;
     });
   }, [enabled, bundle, matchingStepIds]);
+
+  // Session tracking: start/resume when activeFlowId changes
+  useEffect(() => {
+    if (!enabled || !activeFlowId) return;
+    setSessionState((prev) => {
+      const next = startOrResumeSession(prev, activeFlowId);
+      saveSessionState(next);
+      return next;
+    });
+  }, [enabled, activeFlowId]);
+
+  // Session tracking: dwell tick every 1s for steps on the current page
+  useEffect(() => {
+    if (!enabled || !open) return;
+    const TICK_MS = 1000;
+    const t = setInterval(() => {
+      setSessionState((prev) => {
+        if (!prev.activeSession) return prev;
+        let session = prev.activeSession;
+        for (const sid of matchingStepIds) {
+          session = recordStepPresence(session, sid, TICK_MS);
+        }
+        const next = { ...prev, activeSession: session };
+        saveSessionState(next);
+        return next;
+      });
+    }, TICK_MS);
+    return () => clearInterval(t);
+  }, [enabled, open, matchingStepIds]);
+
+  // Session resume: auto-select flow from persisted session on open
+  useEffect(() => {
+    if (!enabled || !open || activeFlowId) return;
+    const saved = loadSessionState();
+    if (saved.activeSession && !saved.activeSession.completed) {
+      setActiveFlowId(saved.activeSession.flowId);
+    }
+  }, [enabled, open]); // intentionally exclude activeFlowId to only run on open
+
+  // Session tracking: check completion when visited changes
+  useEffect(() => {
+    if (!enabled) return;
+    setSessionState((prev) => {
+      if (!prev.activeSession) return prev;
+      const flowId = prev.activeSession.flowId;
+      const flow = workspace?.bundle?.flows.find((f) => f.id === flowId);
+      if (!flow) return prev;
+      const session = checkSessionComplete(prev.activeSession, flow.steps, visited);
+      if (session === prev.activeSession) return prev;
+      const next = { ...prev, activeSession: session };
+      saveSessionState(next);
+      return next;
+    });
+  }, [enabled, visited, workspace]);
 
   useEffect(() => {
     if (!enabled) return;
