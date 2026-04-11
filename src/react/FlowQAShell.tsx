@@ -745,17 +745,23 @@ function SidebarInner(props: {
               )}
             </div>
 
-            <details className="fq-collapse">
-              <summary>AI noticed {observations.length} things (codebase)</summary>
-              <div className="fq-card fq-list">
-                {!observations.length && <div className="fq-muted">Run CLI generate.</div>}
-                {observations.map((o, i) => (
-                  <div key={i}>
-                    <strong>{o.type}:</strong> {o.observation}
-                  </div>
-                ))}
+            {!!observations.length && (
+              <div className="fq-card">
+                <div className="fq-section-title">AI noticed {observations.length} things</div>
+                <div className="fq-list">
+                  {observations.map((o, i) => (
+                    <div key={i} style={{ marginBottom: 8 }}>
+                      <strong>{o.type}:</strong> {o.observation}
+                      {o.suggested_assumption && (
+                        <div className="fq-muted" style={{ marginTop: 2, fontSize: 12 }}>
+                          Suggested assumption: {o.suggested_assumption}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </details>
+            )}
 
             <div>
               <div className="fq-section-title">Flows</div>
