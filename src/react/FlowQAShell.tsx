@@ -1,64 +1,14 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import * as htmlToImage from "html-to-image";
 import type { Flow, Issue, IssueType, MountFlowQAOptions, Step } from "../lib/types";
-import { loadWorkspace, type LoadedWorkspace } from "../lib/loader";
-import {
-  assumptionsForFlows,
-  changedRoutes,
-  flowsCoveringChangedRoutes,
-  staleStepIds,
-  strategicGaps,
-  changedFileGroups,
-  type ChangedFileGroup,
-} from "../lib/git-map";
-import { findMatchingStepIds } from "../lib/match-url";
-import {
-  getCorrections,
-  getFacadeMode,
-  getIssues,
-  getStepNotes,
-  getVisitedSteps,
-  idbPut,
-  idbGet,
-  setCorrections,
-  setFacadeMode,
-  setIssues,
-  setStepNotes,
-  setVisitedSteps,
-  type FacadeMode,
-} from "../lib/storage";
-import { exportJson, exportMarkdown, buildSessionPrompt } from "../lib/export-report";
-import {
-  computeStrategyState,
-  type StrategyState,
-  type AssumptionHealth,
-  type StrategySignal,
-} from "../lib/strategy-inference";
-import { clusterRelatedIssues } from "../lib/dedupe";
-import {
-  applyCopyPatches,
-  restoreCopyPatches,
-  setFacadeModeOnApp,
-  type CopyPatch,
-} from "../lib/dom-facade";
+import type { LoadedWorkspace } from "../lib/loader";
+import type { ChangedFileGroup } from "../lib/git-map";
+import { strategicGaps } from "../lib/git-map";
+import type { FacadeMode } from "../lib/storage";
+import type { StrategyState } from "../lib/strategy-inference";
+import { dwellLabel, sessionStats, type FlowSession } from "../lib/session-tracker";
 import { SIDEBAR_CSS } from "./sidebar-styles";
-import {
-  loadSessionState,
-  saveSessionState,
-  startOrResumeSession,
-  recordStepPresence,
-  checkSessionComplete,
-  dwellLabel,
-  sessionStats,
-  type SessionState,
-  type FlowSession,
-} from "../lib/session-tracker";
-
-function newId(): string {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
-  return `fq-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
+import { useFlowQAStore } from "./useFlowQAStore";
 
 const VIEWPORT_WIDTH: Record<string, string | undefined> = {
   "375": "375px",
@@ -84,413 +34,86 @@ export function FlowQAShell(props: FlowQAShellProps) {
     gitContextPath = "git-context.json",
   } = props;
 
-  const [open, setOpen] = useState(false);
-  const [workspace, setWorkspace] = useState<LoadedWorkspace | null>(null);
-  const [pathname, setPathname] = useState(() => getLocation().pathname);
-  const [viewport, setViewport] = useState<keyof typeof VIEWPORT_WIDTH>("full");
-  const [activeFlowId, setActiveFlowId] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [visited, setVisited] = useState<Record<string, number>>(getVisitedSteps);
-  const [notes, setNotes] = useState<Record<string, string>>(getStepNotes);
-  const [issues, setIssuesState] = useState<Issue[]>(getIssues);
-  const [facadeMode, setFacadeModeState] = useState<FacadeMode>(getFacadeMode);
-  const [copySelector, setCopySelector] = useState("");
-  const [copyText, setCopyText] = useState("");
-  const [copyPatches, setCopyPatches] = useState<CopyPatch[]>([]);
-
-  const [sessionState, setSessionState] = useState<SessionState>(loadSessionState);
-
-  const [issueDraft, setIssueDraft] = useState({
-    notes: "",
-    type: "bug" as IssueType,
-    strategic_note: "",
-    severity: "" as Issue["severity"] | "",
-    evidence_direction: "" as Issue["evidence_direction"] | "",
-    componentName: "",
-    selector: "",
-    patternBreadth: "" as string,
+  const store = useFlowQAStore({
+    routeConfig,
+    getLocation,
+    enabled,
+    subscribeLocation,
+    flowQaAssetBase,
+    gitContextPath,
+    getAppViewportEl: () => appViewportRef.current,
   });
 
-  useEffect(() => {
-    if (!enabled) {
-      setWorkspace(null);
-      return;
-    }
-    loadWorkspace(flowQaAssetBase, { gitFile: gitContextPath.replace(/^\//, "") }).then(setWorkspace);
-  }, [enabled, flowQaAssetBase, gitContextPath]);
-
+  // Apply facade mode to DOM when ref or facadeMode changes
   useEffect(() => {
     if (!enabled) return;
-    if (!subscribeLocation) {
-      const t = setInterval(() => setPathname(getLocation().pathname), 400);
-      return () => clearInterval(t);
-    }
-    const unsub = subscribeLocation(() => setPathname(getLocation().pathname));
-    return unsub;
-  }, [enabled, getLocation, subscribeLocation]);
+    store.applyFacadeToDOM();
+  }, [enabled, store.facadeMode, appViewportRef]);
 
-  useEffect(() => {
-    if (!enabled) setOpen(false);
-  }, [enabled]);
-
-  useEffect(() => {
-    if (!enabled) return;
-    const matchesToggle = (e: KeyboardEvent): boolean => {
-      if (e.metaKey || e.repeat) return false;
-      // Primary: Control+Shift+F (F = Flow QA). Use Control, not Command on Mac.
-      if (e.ctrlKey && e.shiftKey && !e.altKey && e.code === "KeyF") return true;
-      // Alternate: Control+Shift+` (US Backquote); UK/EU may use different physical keys.
-      if (e.ctrlKey && e.shiftKey && !e.altKey && e.code === "Backquote") return true;
-      // Fallback: Control+Alt+F (no Shift) — avoids Shift+dead-key issues on some layouts.
-      if (e.ctrlKey && e.altKey && !e.shiftKey && e.code === "KeyF") return true;
-      return false;
-    };
-
-    const onKey = (e: KeyboardEvent) => {
-      if (!matchesToggle(e)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      setOpen((o) => !o);
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [enabled]);
-
-  useEffect(() => {
-    if (!enabled) {
-      if (typeof window !== "undefined") {
-        delete (window as unknown as { __FLOW_QA_TOGGLE__?: () => void }).__FLOW_QA_TOGGLE__;
-      }
-      return;
-    }
-    if (typeof window === "undefined") return;
-    (window as unknown as { __FLOW_QA_TOGGLE__?: () => void }).__FLOW_QA_TOGGLE__ = () =>
-      setOpen((o) => !o);
-    console.info(
-      "[Flow QA] Toggle: Control+Shift+F (or Control+Shift+`, or Control+Option+F) — or run __FLOW_QA_TOGGLE__() in the console — or use the corner button."
-    );
-    return () => {
-      delete (window as unknown as { __FLOW_QA_TOGGLE__?: () => void }).__FLOW_QA_TOGGLE__;
-    };
-  }, [enabled]);
-
-  const bundle = workspace?.bundle ?? null;
-  const gitCtx = workspace?.gitContext ?? null;
-  const observations = workspace?.observations ?? [];
-
-  const changed = useMemo(
-    () => (gitCtx ? changedRoutes(gitCtx, routeConfig) : []),
-    [gitCtx, routeConfig]
-  );
-  const hotFlows = useMemo(
-    () => (bundle ? flowsCoveringChangedRoutes(bundle, changed) : []),
-    [bundle, changed]
-  );
-  const hotAssumptions = useMemo(() => assumptionsForFlows(hotFlows), [hotFlows]);
-
-  const [selectedSegment, setSelectedSegment] = useState<string | null>(null);
-
-  const segments = useMemo(() => {
-    if (!bundle) return [];
-    const s = new Set<string>();
-    for (const f of bundle.flows) if (f.segment?.trim()) s.add(f.segment.trim());
-    return [...s].sort();
-  }, [bundle]);
-
-  const stale = useMemo(
-    () => (bundle ? staleStepIds(bundle, visited, gitCtx, routeConfig) : new Set<string>()),
-    [bundle, visited, gitCtx, routeConfig]
-  );
-
-  const gaps = useMemo(
-    () => (bundle ? strategicGaps(bundle) : null),
-    [bundle]
-  );
-
-  const changeGroups = useMemo(
-    () => (bundle ? changedFileGroups(gitCtx, routeConfig, bundle) : []),
-    [gitCtx, routeConfig, bundle]
-  );
-
-  const strategyState = useMemo(
-    () =>
-      bundle
-        ? computeStrategyState({ bundle, issues, observations, visited, stale })
-        : null,
-    [bundle, issues, observations, visited, stale]
-  );
-
-  const activeFlow = bundle?.flows.find((f) => f.id === activeFlowId) ?? null;
-
-  const matchingStepIds = useMemo(() => {
-    if (!bundle) return [];
-    return findMatchingStepIds(pathname, bundle.steps);
-  }, [bundle, pathname]);
-
-  useEffect(() => {
-    if (!enabled || !bundle) return;
-    setVisited((prev) => {
-      let next = prev;
-      let changed = false;
-      const now = Date.now();
-      for (const sid of matchingStepIds) {
-        if (!next[sid]) {
-          if (!changed) next = { ...prev };
-          changed = true;
-          next[sid] = now;
-        }
-      }
-      if (changed) setVisitedSteps(next);
-      return changed ? next : prev;
-    });
-  }, [enabled, bundle, matchingStepIds]);
-
-  // Session tracking: start/resume when activeFlowId changes
-  useEffect(() => {
-    if (!enabled || !activeFlowId) return;
-    setSessionState((prev) => {
-      const next = startOrResumeSession(prev, activeFlowId);
-      saveSessionState(next);
-      return next;
-    });
-  }, [enabled, activeFlowId]);
-
-  // Session tracking: dwell tick every 1s for steps on the current page
-  useEffect(() => {
-    if (!enabled || !open) return;
-    const TICK_MS = 1000;
-    const t = setInterval(() => {
-      setSessionState((prev) => {
-        if (!prev.activeSession) return prev;
-        let session = prev.activeSession;
-        for (const sid of matchingStepIds) {
-          session = recordStepPresence(session, sid, TICK_MS);
-        }
-        const next = { ...prev, activeSession: session };
-        saveSessionState(next);
-        return next;
-      });
-    }, TICK_MS);
-    return () => clearInterval(t);
-  }, [enabled, open, matchingStepIds]);
-
-  // Session resume: auto-select flow from persisted session on open
-  useEffect(() => {
-    if (!enabled || !open || activeFlowId) return;
-    const saved = loadSessionState();
-    if (saved.activeSession && !saved.activeSession.completed) {
-      setActiveFlowId(saved.activeSession.flowId);
-    }
-  }, [enabled, open]); // intentionally exclude activeFlowId to only run on open
-
-  // Session tracking: check completion when visited changes
-  useEffect(() => {
-    if (!enabled) return;
-    setSessionState((prev) => {
-      if (!prev.activeSession) return prev;
-      const flowId = prev.activeSession.flowId;
-      const flow = workspace?.bundle?.flows.find((f) => f.id === flowId);
-      if (!flow) return prev;
-      const session = checkSessionComplete(prev.activeSession, flow.steps, visited);
-      if (session === prev.activeSession) return prev;
-      const next = { ...prev, activeSession: session };
-      saveSessionState(next);
-      return next;
-    });
-  }, [enabled, visited, workspace]);
-
-  useEffect(() => {
-    if (!enabled) return;
-    setFacadeModeOnApp(appViewportRef.current, facadeMode === "empty_state" ? "empty_state" : "off");
-    if (facadeMode !== "copy_review") {
-      restoreCopyPatches(appViewportRef.current, copyPatches);
-    }
-  }, [enabled, facadeMode, appViewportRef, copyPatches]);
-
-  const flowStepRoute = useCallback(
-    (flowId: string, stepId: string) => {
-      const st = bundle?.steps[stepId];
-      return st?.urlPattern;
-    },
-    [bundle]
-  );
-
-  const relatedGroups = useMemo(
-    () => clusterRelatedIssues(issues, flowStepRoute),
-    [issues, flowStepRoute]
-  );
-
-  const issueTypeCounts = useMemo(() => {
-    const c: Record<IssueType, number> = {
-      bug: 0,
-      ux_friction: 0,
-      strategic_gap: 0,
-      assumption_evidence: 0,
-    };
-    for (const i of issues) c[i.type] += 1;
-    return c;
-  }, [issues]);
-
-  const onSaveStepNote = (stepId: string, text: string) => {
-    const next = { ...notes, [stepId]: text };
-    setNotes(next);
-    setStepNotes(next);
-  };
-
-  const onToggleVisited = useCallback((stepId: string) => {
-    setVisited((prev) => {
-      const next = { ...prev };
-      if (next[stepId]) {
-        delete next[stepId];
-      } else {
-        next[stepId] = Date.now();
-      }
-      setVisitedSteps(next);
-      return next;
-    });
-  }, []);
-
-  const captureScreenshotKey = async (): Promise<string> => {
-    const el = appViewportRef.current;
-    if (!el) return "";
-    const dataUrl = await htmlToImage.toPng(el, { cacheBust: true, pixelRatio: 1 });
-    const res = await fetch(dataUrl);
-    const blob = await res.blob();
-    const key = `ss-${newId()}`;
-    await idbPut(key, blob);
-    return key;
-  };
-
-  const onLogIssue = async () => {
-    if (!bundle || !activeFlow) return;
-    const stepId =
-      matchingStepIds.find((id) => activeFlow.steps.includes(id)) ??
-      activeFlow.steps[0] ??
-      null;
-    if (!stepId) return;
-    const screenshot = await captureScreenshotKey();
-    const step = bundle.steps[stepId];
-    const pb = issueDraft.patternBreadth ? Number(issueDraft.patternBreadth) : undefined;
-    const issue: Issue = {
-      id: newId(),
-      flowId: activeFlow.id,
-      stepId,
-      notes: issueDraft.notes,
-      screenshot,
-      componentName: issueDraft.componentName || undefined,
-      selector: issueDraft.selector || undefined,
-      patternBreadth: Number.isFinite(pb) ? pb : undefined,
-      timestamp: Date.now(),
-      type: issueDraft.type,
-      strategic_note: issueDraft.strategic_note || undefined,
-      severity: issueDraft.severity || undefined,
-      evidence_direction: issueDraft.evidence_direction || undefined,
-    };
-    const next = [...issues, issue];
-    setIssuesState(next);
-    setIssues(next);
-    setIssueDraft({
-      notes: "",
-      type: "bug",
-      strategic_note: "",
-      severity: "",
-      evidence_direction: "",
-      componentName: "",
-      selector: "",
-      patternBreadth: "",
-    });
-  };
-
-  const currentStepForIssue = useMemo(() => {
-    if (!bundle || !activeFlow) return null;
-    const sid =
-      matchingStepIds.find((id) => activeFlow.steps.includes(id)) ?? activeFlow.steps[0] ?? null;
-    return sid ? bundle.steps[sid] ?? null : null;
-  }, [bundle, activeFlow, matchingStepIds]);
-
-  const onExportMd = async () => {
-    if (!bundle) return;
-    const md = await exportMarkdown({
-      bundle,
-      issues,
-      observations,
-      getScreenshotBlob: (k) => idbGet(k),
-    });
-    await navigator.clipboard.writeText(md);
-    alert("Markdown export copied to clipboard");
-  };
-
-  const onExportJson = async () => {
-    if (!bundle) return;
-    const js = await exportJson({
-      bundle,
-      issues,
-      observations,
-      getScreenshotBlob: (k) => idbGet(k),
-    });
-    await navigator.clipboard.writeText(js);
-    alert("JSON export copied to clipboard");
-  };
-
-  const onCopySession = useCallback(() => {
-    if (!bundle) return;
-    const prompt = buildSessionPrompt({
-      bundle,
-      issues,
-      observations,
-      notes,
-      visited,
-      changeGroups,
-    });
-    navigator.clipboard.writeText(prompt).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }, [bundle, issues, observations, notes, visited, changeGroups]);
-
-  const onRecordCorrection = () => {
-    if (!activeFlow || !bundle) return;
-    const stepId =
-      matchingStepIds.find((id) => activeFlow.steps.includes(id)) ?? activeFlow.steps[0];
-    if (!stepId) return;
-    const cur = getCorrections();
-    const next = [
-      ...cur,
-      {
-        flowId: activeFlow.id,
-        stepId,
-        matchedPathname: pathname,
-        matchedSelector: bundle.steps[stepId]?.selector,
-        recordedAt: Date.now(),
-      },
-    ];
-    setCorrections(next);
-    alert("Recorded ground truth for this step (saved locally).");
-  };
-
-  const onApplyFacadeMode = (m: FacadeMode) => {
-    setFacadeModeState(m);
-    setFacadeMode(m);
-    if (m !== "copy_review") {
-      restoreCopyPatches(appViewportRef.current, copyPatches);
-      setCopyPatches([]);
-    }
-  };
-
-  const onApplyCopy = () => {
-    if (!copySelector.trim()) return;
-    const patch: CopyPatch = { selector: copySelector.trim(), text: copyText };
-    const next = [...copyPatches, patch];
-    setCopyPatches(next);
-    applyCopyPatches(appViewportRef.current, [patch]);
-    setFacadeModeState("copy_review");
-    setFacadeMode("copy_review");
-  };
+  // Read all state from store
+  const {
+    open,
+    bundle,
+    pathname,
+    viewport,
+    activeFlowId,
+    copied,
+    visited,
+    notes,
+    issues,
+    facadeMode,
+    copySelector,
+    copyText,
+    issueDraft,
+    selectedSegment,
+    changed,
+    hotFlows,
+    hotAssumptions,
+    observations,
+    matchingStepIds,
+    stale,
+    gaps,
+    segments,
+    changeGroups,
+    strategyState,
+    activeFlow,
+    issueTypeCounts,
+    relatedGroups,
+    currentStepForIssue,
+    flowSession,
+    sessionHistory,
+  } = store;
 
   const width = VIEWPORT_WIDTH[viewport];
 
   const sidebarHostRef = useRef<HTMLDivElement>(null);
   const sidebarRootRef = useRef<Root | null>(null);
+
+  // Stable callbacks that delegate to store
+  const setActiveFlowId = useCallback((id: string | null) => store.setActiveFlowId(id), [store]);
+  const setSelectedSegment = useCallback((s: string | null) => store.setSelectedSegment(s), [store]);
+  const setViewport = useCallback((v: keyof typeof VIEWPORT_WIDTH) => store.setViewport(v), [store]);
+  const setIssueDraft = useCallback(
+    (updater: React.SetStateAction<typeof issueDraft>) => {
+      if (typeof updater === "function") {
+        store.setIssueDraft(updater);
+      } else {
+        store.setIssueDraft(updater);
+      }
+    },
+    [store]
+  );
+  const setCopySelector = useCallback((s: string) => store.setCopySelector(s), [store]);
+  const setCopyText = useCallback((s: string) => store.setCopyText(s), [store]);
+  const onSaveStepNote = useCallback((sid: string, t: string) => store.onSaveStepNote(sid, t), [store]);
+  const onToggleVisited = useCallback((sid: string) => store.onToggleVisited(sid), [store]);
+  const onLogIssue = useCallback(() => store.onLogIssue(), [store]);
+  const onExportMd = useCallback(() => store.onExportMd(), [store]);
+  const onExportJson = useCallback(() => store.onExportJson(), [store]);
+  const onCopySession = useCallback(() => store.onCopySession(), [store]);
+  const onApplyFacadeMode = useCallback((m: FacadeMode) => store.onApplyFacadeMode(m), [store]);
+  const onApplyCopy = useCallback(() => store.onApplyCopy(), [store]);
+  const onRecordCorrection = useCallback(() => store.onRecordCorrection(), [store]);
 
   useLayoutEffect(() => {
     if (!enabled || !open) {
@@ -564,52 +187,13 @@ export function FlowQAShell(props: FlowQAShellProps) {
         onRecordCorrection={onRecordCorrection}
         changeGroups={changeGroups}
         strategyState={strategyState}
-        flowSession={sessionState.activeSession}
-        sessionHistory={sessionState.history}
+        flowSession={flowSession}
+        sessionHistory={sessionHistory}
         onCopySession={onCopySession}
         copied={copied}
       />
     );
-  }, [
-    enabled,
-    open,
-    changed,
-    hotFlows,
-    hotAssumptions,
-    observations,
-    bundle,
-    pathname,
-    matchingStepIds,
-    stale,
-    gaps,
-    segments,
-    selectedSegment,
-    issues,
-    issueTypeCounts,
-    relatedGroups,
-    activeFlow,
-    activeFlowId,
-    visited,
-    notes,
-    viewport,
-    issueDraft,
-    facadeMode,
-    copySelector,
-    copyText,
-    currentStepForIssue,
-    onSaveStepNote,
-    onLogIssue,
-    onExportMd,
-    onExportJson,
-    onApplyFacadeMode,
-    onApplyCopy,
-    onRecordCorrection,
-    changeGroups,
-    strategyState,
-    sessionState,
-    onCopySession,
-    copied,
-  ]);
+  });
 
   if (!enabled) {
     return (
@@ -672,7 +256,7 @@ export function FlowQAShell(props: FlowQAShellProps) {
             fontSize: 12,
             cursor: "pointer",
           }}
-          onClick={() => setOpen(true)}
+          onClick={() => store.setOpen(true)}
         >
           Flow QA (Ctrl+Shift+F)
         </button>
