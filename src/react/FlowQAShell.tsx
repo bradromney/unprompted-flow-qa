@@ -821,10 +821,6 @@ function SidebarInner(props: {
             return false;
           });
           const otherObservations = observations.filter((o) => !pageObservations.includes(o));
-          // Current step context
-          const currentStep = matchingStepIds.length
-            ? bundle.steps[matchingStepIds[0]]
-            : null;
 
           return (
           <>
@@ -874,58 +870,29 @@ function SidebarInner(props: {
               );
             })()}
 
-            {/* CONTEXTUAL OBSERVATION — relevant to this page */}
+            {/* CONTEXTUAL OBSERVATIONS — truncated one-liners */}
             {pageObservations.length > 0 && (
               <div className="fq-card" style={{ borderLeft: "3px solid #d29922" }}>
-                <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>
+                <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
                   On this page
                 </div>
-                {pageObservations.slice(0, 2).map((o, i) => (
-                  <div key={i} style={{ marginTop: i > 0 ? 8 : 4, fontSize: 13 }}>
-                    {o.observation}
-                    {o.suggested_assumption && (
-                      <div className="fq-muted" style={{ marginTop: 2, fontSize: 12, fontStyle: "italic" }}>
-                        Assumption: {o.suggested_assumption}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* CURRENT STEP CONTEXT — what to look for right now */}
-            {currentStep && (
-              <div className="fq-card">
-                <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>
-                  What to look for
-                </div>
-                {currentStep.success_looks_like && (
-                  <div style={{ marginTop: 4, fontSize: 13 }}>
-                    <span style={{ color: "#3fb950" }}>Success:</span> {currentStep.success_looks_like}
-                  </div>
-                )}
-                {currentStep.failure_signal && (
-                  <div style={{ marginTop: 4, fontSize: 13 }}>
-                    <span style={{ color: "#f85149" }}>Failure:</span> {currentStep.failure_signal}
-                  </div>
-                )}
-                {currentStep.assumption_dependency && (
-                  <div style={{ marginTop: 4, fontSize: 13 }}>
-                    <span style={{ color: "#d29922" }}>Assumption:</span> {currentStep.assumption_dependency}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* GIT-CHANGED ASSUMPTIONS */}
-            {!!hotAssumptions.length && (
-              <div className="fq-card">
-                <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>
-                  Assumptions stressed by recent changes
-                </div>
-                {hotAssumptions.map((a, i) => (
-                  <div key={i} style={{ marginTop: 4, fontSize: 13 }}>{a}</div>
-                ))}
+                {pageObservations.slice(0, 3).map((o, i) => {
+                  const text = o.observation;
+                  const short = text.length > 90 ? text.slice(0, 87) + "…" : text;
+                  return (
+                    <details key={i} style={{ fontSize: 12, marginTop: i > 0 ? 2 : 0 }}>
+                      <summary style={{ cursor: "pointer", listStyle: "none" }}>
+                        <span style={{ color: "var(--fq-muted)", marginRight: 4 }}>›</span>{short}
+                      </summary>
+                      {text.length > 90 && <div style={{ fontSize: 12, marginTop: 4, paddingLeft: 12, color: "var(--fq-muted)" }}>{text}</div>}
+                      {o.suggested_assumption && (
+                        <div style={{ fontSize: 11, marginTop: 2, paddingLeft: 12, fontStyle: "italic", color: "var(--fq-warn)" }}>
+                          Assumption: {o.suggested_assumption}
+                        </div>
+                      )}
+                    </details>
+                  );
+                })}
               </div>
             )}
 
@@ -1164,20 +1131,28 @@ function SidebarInner(props: {
                         {isNext && !isStale && <span style={{ color: "var(--fq-warn)", marginLeft: 6, fontSize: 11 }}>→ Up next</span>}
                       </div>
 
-                      {/* Inline strategic context for current step */}
-                      {showContext && (st.success_looks_like || st.failure_signal || st.assumption_dependency) && (
-                        <div className="fq-check-context">
-                          {st.success_looks_like && (
-                            <div><span style={{ color: "var(--fq-ok)" }}>✓</span> {st.success_looks_like}</div>
-                          )}
-                          {st.failure_signal && (
-                            <div><span style={{ color: "var(--fq-danger)" }}>✗</span> {st.failure_signal}</div>
-                          )}
-                          {st.assumption_dependency && (
-                            <div><span style={{ color: "var(--fq-warn)" }}>?</span> {st.assumption_dependency}</div>
-                          )}
-                        </div>
-                      )}
+                      {/* Inline strategic context — truncated, expandable */}
+                      {showContext && (st.success_looks_like || st.failure_signal || st.assumption_dependency) && (() => {
+                        const trunc = (s: string, n = 70) => s.length > n ? s.slice(0, n - 1) + "…" : s;
+                        return (
+                        <details className="fq-check-context" style={{ cursor: "pointer" }}>
+                          <summary style={{ listStyle: "none", fontSize: 12 }}>
+                            {st.success_looks_like && <span><span style={{ color: "var(--fq-ok)" }}>✓</span> {trunc(st.success_looks_like)} </span>}
+                          </summary>
+                          <div style={{ marginTop: 4, fontSize: 12 }}>
+                            {st.success_looks_like && (
+                              <div style={{ marginBottom: 2 }}><span style={{ color: "var(--fq-ok)" }}>✓</span> {st.success_looks_like}</div>
+                            )}
+                            {st.failure_signal && (
+                              <div style={{ marginBottom: 2 }}><span style={{ color: "var(--fq-danger)" }}>✗</span> {st.failure_signal}</div>
+                            )}
+                            {st.assumption_dependency && (
+                              <div><span style={{ color: "var(--fq-warn)" }}>?</span> {st.assumption_dependency}</div>
+                            )}
+                          </div>
+                        </details>
+                        );
+                      })()}
 
                       {/* Notes toggle */}
                       <div style={{ marginTop: 2 }}>
