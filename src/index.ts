@@ -27,3 +27,14 @@ export {
 } from "./lib/git-map";
 export { exportMarkdown, exportJson, buildStrategicSummary } from "./lib/export-report";
 export { clusterRelatedIssues } from "./lib/dedupe";
+export {
+  computeAssumptionHealth,
+  computeSegmentCoverage,
+  computeStrategySignals,
+  computeStrategyState,
+  type AssumptionHealth,
+  type AssumptionStatus,
+  type SegmentCoverage,
+  type StrategySignal,
+  type StrategyState,
+} from "./lib/strategy-inference";

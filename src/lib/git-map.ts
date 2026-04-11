@@ -76,6 +76,45 @@ export function assumptionsForFlows(flows: Flow[]): string[] {
   return [...set];
 }
 
+export interface ChangedFileGroup {
+  file: string;
+  route: RouteConfigEntry;
+  affectedSteps: Array<{ stepId: string; step: Step; flowId: string; flowTitle: string }>;
+}
+
+/** Group changed files → routes → affected steps for "What Changed" view */
+export function changedFileGroups(
+  git: GitContextFile | null,
+  routeConfig: RouteConfig,
+  bundle: FlowBundle
+): ChangedFileGroup[] {
+  if (!git?.changedFiles?.length) return [];
+  const norm = (p: string) => p.replace(/^\.\//, "");
+  const groups: ChangedFileGroup[] = [];
+  const seen = new Set<string>(); // dedupe step appearances
+
+  for (const cf of git.changedFiles) {
+    const matchingRoutes = routeConfig.routes.filter((r) => fileTouchesRoute(r, cf));
+    for (const route of matchingRoutes) {
+      const affected: ChangedFileGroup["affectedSteps"] = [];
+      for (const flow of bundle.flows) {
+        for (const sid of flow.steps) {
+          const step = bundle.steps[sid];
+          if (!step || seen.has(sid)) continue;
+          if (stepTouchesRoute(step, route)) {
+            affected.push({ stepId: sid, step, flowId: flow.id, flowTitle: flow.title });
+            seen.add(sid);
+          }
+        }
+      }
+      if (affected.length) {
+        groups.push({ file: norm(cf), route, affectedSteps: affected });
+      }
+    }
+  }
+  return groups;
+}
+
 /** Does this individual step touch a given route? */
 export function stepTouchesRoute(step: Step, route: RouteConfigEntry): boolean {
   const example = routePathToExamplePath(route.path);

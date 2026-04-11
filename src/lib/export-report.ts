@@ -1,4 +1,6 @@
 import type { FlowBundle, Issue, StrategicObservation } from "./types";
+import type { ChangedFileGroup } from "./git-map";
+import { computeAssumptionHealth, type AssumptionHealth } from "./strategy-inference";
 
 export interface ExportContext {
   bundle: FlowBundle;
@@ -158,6 +160,98 @@ export async function exportMarkdown(ctx: ExportContext): Promise<string> {
     if (o.suggested_assumption) lines.push(`  - Suggested assumption: ${o.suggested_assumption}`);
   }
   lines.push("");
+
+  return lines.join("\n");
+}
+
+/** Lightweight session prompt for clipboard → paste into Claude Code / Cursor */
+export function buildSessionPrompt(ctx: {
+  bundle: FlowBundle;
+  issues: Issue[];
+  observations: StrategicObservation[];
+  notes: Record<string, string>;
+  visited: Record<string, number>;
+  changeGroups: ChangedFileGroup[];
+}): string {
+  const lines: string[] = [];
+  const ts = new Date().toISOString().slice(0, 10);
+  lines.push(`## Flow QA Review — ${ts}`, "");
+
+  // Changed files → affected steps
+  if (ctx.changeGroups.length) {
+    lines.push("### What changed");
+    for (const g of ctx.changeGroups) {
+      lines.push(`**\`${g.file}\`**`);
+      for (const s of g.affectedSteps) {
+        const reviewed = ctx.visited[s.stepId] ? "✓" : "☐";
+        const note = ctx.notes[s.stepId]?.trim();
+        lines.push(`- ${reviewed} ${s.step.instructions ?? s.stepId} _(${s.flowTitle})_${note ? `\n  > ${note}` : ""}`);
+      }
+    }
+    lines.push("");
+  }
+
+  // All notes (including those not in change groups)
+  const notesEntries = Object.entries(ctx.notes).filter(([, t]) => t.trim());
+  if (notesEntries.length) {
+    lines.push("### Notes");
+    for (const [sid, text] of notesEntries) {
+      const step = ctx.bundle.steps[sid];
+      lines.push(`- **${step?.instructions ?? sid}** — ${text.trim()}`);
+    }
+    lines.push("");
+  }
+
+  // Issues
+  if (ctx.issues.length) {
+    lines.push("### Issues");
+    for (const issue of ctx.issues) {
+      const step = ctx.bundle.steps[issue.stepId];
+      lines.push(`- **${issue.type}**${issue.severity ? ` (${issue.severity})` : ""}: ${issue.notes}${step ? ` — _${step.instructions}_` : ""}`);
+      if (issue.strategic_note) lines.push(`  Strategic: ${issue.strategic_note}`);
+    }
+    lines.push("");
+  }
+
+  // Strategy intelligence
+  const health = computeAssumptionHealth(ctx.bundle, ctx.issues);
+  const atRisk = health.filter((a) => a.status === "at_risk" || a.status === "mixed");
+  const confirmed = health.filter((a) => a.status === "confirmed");
+  const untested = health.filter((a) => a.status === "untested");
+
+  if (atRisk.length) {
+    lines.push("### Assumptions at risk");
+    for (const a of atRisk) {
+      const tag = a.status === "at_risk" ? "CONTRADICTED" : "MIXED";
+      lines.push(`- **[${tag}]** "${a.assumption}" — ${a.supports} supporting, ${a.contradicts} contradicting, ${a.ambiguous} ambiguous`);
+    }
+    lines.push("");
+  }
+
+  if (confirmed.length) {
+    lines.push("### Assumptions confirmed");
+    for (const a of confirmed) {
+      lines.push(`- "${a.assumption}" — ${a.supports} supporting evidence`);
+    }
+    lines.push("");
+  }
+
+  if (untested.length) {
+    lines.push("### Assumptions untested");
+    for (const a of untested) {
+      lines.push(`- "${a.assumption}" (${a.flowIds.length} flow${a.flowIds.length !== 1 ? "s" : ""}, ${a.stepIds.length} step${a.stepIds.length !== 1 ? "s" : ""})`);
+    }
+    lines.push("");
+  }
+
+  // Observations
+  if (ctx.observations.length) {
+    lines.push("### Observations from codebase");
+    for (const o of ctx.observations) {
+      lines.push(`- **${o.type}**: ${o.observation}`);
+    }
+    lines.push("");
+  }
 
   return lines.join("\n");
 }
