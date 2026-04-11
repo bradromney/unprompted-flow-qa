@@ -38,3 +38,12 @@ export {
   type StrategySignal,
   type StrategyState,
 } from "./lib/strategy-inference";
+export {
+  loadSessionState,
+  saveSessionState,
+  dwellLabel,
+  sessionStats,
+  type SessionState,
+  type FlowSession,
+  type StepEngagement,
+} from "./lib/session-tracker";

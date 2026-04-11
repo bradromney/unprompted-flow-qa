@@ -297,4 +297,14 @@ export const SIDEBAR_CSS = `
 .fq-badge-untested { background: rgba(139,148,158,0.1); color: var(--fq-muted); }
 .fq-assumption-counts { font-size: 10px; color: var(--fq-muted); }
 .fq-assumption-text { font-size: 12px; line-height: 1.35; }
+/* Session / dwell tracking */
+.fq-dwell-label {
+  font-size: 10px; color: var(--fq-muted); margin-left: 6px;
+  opacity: 0.7;
+}
+.fq-session-complete {
+  padding: 6px 10px; border-radius: 6px; font-size: 12px;
+  background: rgba(63,185,80,0.08); border: 1px solid rgba(63,185,80,0.2);
+  color: var(--fq-ok); text-align: center;
+}
 `;

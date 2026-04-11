@@ -43,6 +43,17 @@ import {
   type CopyPatch,
 } from "../lib/dom-facade";
 import { SIDEBAR_CSS } from "./sidebar-styles";
+import {
+  loadSessionState,
+  saveSessionState,
+  startOrResumeSession,
+  recordStepPresence,
+  checkSessionComplete,
+  dwellLabel,
+  sessionStats,
+  type SessionState,
+  type FlowSession,
+} from "../lib/session-tracker";
 
 function newId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -86,6 +97,8 @@ export function FlowQAShell(props: FlowQAShellProps) {
   const [copySelector, setCopySelector] = useState("");
   const [copyText, setCopyText] = useState("");
   const [copyPatches, setCopyPatches] = useState<CopyPatch[]>([]);
+
+  const [sessionState, setSessionState] = useState<SessionState>(loadSessionState);
 
   const [issueDraft, setIssueDraft] = useState({
     notes: "",
@@ -160,6 +173,61 @@ export function FlowQAShell(props: FlowQAShellProps) {
       delete (window as unknown as { __FLOW_QA_TOGGLE__?: () => void }).__FLOW_QA_TOGGLE__;
     };
   }, [enabled]);
+
+  // Session tracking: start/resume when activeFlowId changes
+  useEffect(() => {
+    if (!enabled || !activeFlowId) return;
+    setSessionState((prev) => {
+      const next = startOrResumeSession(prev, activeFlowId);
+      saveSessionState(next);
+      return next;
+    });
+  }, [enabled, activeFlowId]);
+
+  // Session tracking: dwell tick every 1s for steps on the current page
+  useEffect(() => {
+    if (!enabled || !open) return;
+    const TICK_MS = 1000;
+    const t = setInterval(() => {
+      setSessionState((prev) => {
+        if (!prev.activeSession) return prev;
+        let session = prev.activeSession;
+        // Record presence for each matching step in the active flow
+        for (const sid of matchingStepIds) {
+          session = recordStepPresence(session, sid, TICK_MS);
+        }
+        const next = { ...prev, activeSession: session };
+        saveSessionState(next);
+        return next;
+      });
+    }, TICK_MS);
+    return () => clearInterval(t);
+  }, [enabled, open, matchingStepIds]);
+
+  // Session resume: auto-select flow from persisted session on open
+  useEffect(() => {
+    if (!enabled || !open || activeFlowId) return;
+    const saved = loadSessionState();
+    if (saved.activeSession && !saved.activeSession.completed) {
+      setActiveFlowId(saved.activeSession.flowId);
+    }
+  }, [enabled, open]); // intentionally exclude activeFlowId to only run on open
+
+  // Session tracking: check completion when visited changes
+  useEffect(() => {
+    if (!enabled) return;
+    setSessionState((prev) => {
+      if (!prev.activeSession) return prev;
+      const flowId = prev.activeSession.flowId;
+      const flow = workspace?.bundle?.flows.find((f) => f.id === flowId);
+      if (!flow) return prev;
+      const session = checkSessionComplete(prev.activeSession, flow.steps, visited);
+      if (session === prev.activeSession) return prev;
+      const next = { ...prev, activeSession: session };
+      saveSessionState(next);
+      return next;
+    });
+  }, [enabled, visited, workspace]);
 
   const bundle = workspace?.bundle ?? null;
   const gitCtx = workspace?.gitContext ?? null;
@@ -497,6 +565,8 @@ export function FlowQAShell(props: FlowQAShellProps) {
         onRecordCorrection={onRecordCorrection}
         changeGroups={changeGroups}
         strategyState={strategyState}
+        flowSession={sessionState.activeSession}
+        sessionHistory={sessionState.history}
         onCopySession={onCopySession}
         copied={copied}
       />
@@ -537,6 +607,7 @@ export function FlowQAShell(props: FlowQAShellProps) {
     onRecordCorrection,
     changeGroups,
     strategyState,
+    sessionState,
     onCopySession,
     copied,
   ]);
@@ -674,6 +745,8 @@ function SidebarInner(props: {
   onRecordCorrection: () => void;
   changeGroups: ChangedFileGroup[];
   strategyState: StrategyState | null;
+  flowSession: FlowSession | null;
+  sessionHistory: FlowSession[];
   onCopySession: () => void;
   copied: boolean;
 }) {
@@ -718,6 +791,8 @@ function SidebarInner(props: {
     onRecordCorrection,
     changeGroups,
     strategyState,
+    flowSession,
+    sessionHistory,
     onCopySession,
     copied,
   } = props;
@@ -1081,7 +1156,7 @@ function SidebarInner(props: {
               </div>
             </div>
 
-            {/* Progress bar */}
+            {/* Progress bar + session info */}
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div className="fq-progress-bar" style={{ flex: 1 }}>
                 <div className="fq-progress-fill" style={{ width: `${pct}%` }} />
@@ -1089,8 +1164,19 @@ function SidebarInner(props: {
               <span className="fq-muted" style={{ fontSize: 11, whiteSpace: "nowrap" }}>
                 {visitedCount}/{totalSteps}
                 {staleInFlow > 0 && <span style={{ color: "var(--fq-warn)", marginLeft: 4 }}>· {staleInFlow} stale</span>}
+                {(() => {
+                  if (!flowSession || flowSession.flowId !== displayFlow.id) return null;
+                  const stats = sessionStats(flowSession);
+                  const dwell = dwellLabel(stats.totalDwellMs);
+                  return dwell ? <span style={{ marginLeft: 4 }}>· {dwell}</span> : null;
+                })()}
               </span>
             </div>
+            {flowSession?.completed && flowSession.flowId === displayFlow.id && (
+              <div className="fq-session-complete">
+                Flow complete — ready to copy session
+              </div>
+            )}
 
             {/* Next step prompt */}
             {nextStep && nextUnvisitedIdx !== activeStepIdx && (
@@ -1147,6 +1233,11 @@ function SidebarInner(props: {
                         {st.instructions ?? sid}
                         {isActive && <span style={{ color: "var(--fq-accent)", marginLeft: 6, fontSize: 11 }}>&#9679; You're here</span>}
                         {isStale && !isActive && <span className="fq-stale-badge">&#8635; Changed</span>}
+                        {(() => {
+                          const eng = flowSession?.stepEngagement[sid];
+                          const label = eng ? dwellLabel(eng.dwellMs) : "";
+                          return label ? <span className="fq-dwell-label">{label}</span> : null;
+                        })()}
                       </div>
 
                       {/* Inline strategic context */}
