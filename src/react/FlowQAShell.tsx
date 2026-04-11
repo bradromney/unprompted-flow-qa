@@ -654,128 +654,178 @@ function SidebarInner(props: {
       </div>
 
       <div className="fq-body">
-        <div>
-          <div className="fq-section-title">Viewport</div>
-          <div className="fq-row">
-            {(["375", "414", "768", "full"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                className="fq-btn"
-                data-active={viewport === v}
-                onClick={() => setViewport(v)}
-              >
-                {v === "full" ? "Full" : `${v}px`}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {facadeMode !== "off" && (
           <div className="fq-banner">
             Facade mode active: <strong>{facadeMode}</strong> — preview only, not real app state.
           </div>
         )}
 
-        <div>
-          <div className="fq-section-title">v0.5 — Facade</div>
-          <div className="fq-row">
-            <button type="button" className="fq-btn" onClick={() => onApplyFacadeMode("off")}>
-              Off
-            </button>
-            <button type="button" className="fq-btn" onClick={() => onApplyFacadeMode("empty_state")}>
-              Empty-state sim
-            </button>
-          </div>
-          <div className="fq-card" style={{ marginTop: 8 }}>
-            <div className="fq-label">Copy review — CSS selector</div>
-            <input
-              className="fq-input"
-              value={copySelector}
-              onChange={(e) => setCopySelector(e.target.value)}
-              placeholder="#hero-title"
-            />
-            <div className="fq-label">Replacement text</div>
-            <input
-              className="fq-input"
-              value={copyText}
-              onChange={(e) => setCopyText(e.target.value)}
-              placeholder="New headline"
-            />
-            <button type="button" className="fq-btn fq-btn-primary" style={{ marginTop: 8 }} onClick={onApplyCopy}>
-              Apply copy patch
-            </button>
-          </div>
-        </div>
+        {view === "home" && (() => {
+          // Context-aware: find flows matching current page
+          const flowsHere = bundle.flows.filter((f) =>
+            f.steps.some((sid) => matchingStepIds.includes(sid))
+          );
+          // Primary suggestion: hot flow on this page > any flow on this page > hot flow anywhere
+          const suggestedFlow =
+            flowsHere.find((f) => hotFlows.some((h) => h.id === f.id)) ??
+            flowsHere[0] ??
+            hotFlows[0] ??
+            null;
+          // Observations relevant to current page
+          const pageObservations = observations.filter((o) => {
+            const lower = o.observation.toLowerCase();
+            // Match observations mentioning components/pages related to current path
+            if (pathname.startsWith("/pipeline") && (lower.includes("pipeline") || lower.includes("focus today") || lower.includes("stage"))) return true;
+            if (pathname.startsWith("/contacts") && (lower.includes("contact") || lower.includes("outreach") || lower.includes("warmth"))) return true;
+            if (pathname.startsWith("/strategy") && (lower.includes("strategy") || lower.includes("alignment") || lower.includes("story") || lower.includes("positioning"))) return true;
+            if (pathname.startsWith("/profile") && (lower.includes("profile") || lower.includes("positioning"))) return true;
+            if (pathname === "/" && (lower.includes("landing") || lower.includes("onboard"))) return true;
+            return false;
+          });
+          const otherObservations = observations.filter((o) => !pageObservations.includes(o));
+          // Current step context
+          const currentStep = matchingStepIds.length
+            ? bundle.steps[matchingStepIds[0]]
+            : null;
 
-        {view === "home" && (
+          return (
           <>
-            <div className="fq-card">
-              <div className="fq-section-title">Current path</div>
-              <code>{pathname}</code>
-              <div className="fq-muted" style={{ marginTop: 6 }}>
-                Matching steps: {matchingStepIds.join(", ") || "—"}
-              </div>
-            </div>
-
-            <div className="fq-card">
-              <div className="fq-section-title">Git-changed areas</div>
-              {changed.length ? (
-                <ul className="fq-muted" style={{ margin: 0, paddingLeft: 16 }}>
-                  {changed.map((r) => (
-                    <li key={r.path}>
-                      <code>{r.path}</code> — <code>{r.file}</code>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="fq-muted">No git context — run `flow-qa git-context`.</div>
-              )}
-              {!!hotAssumptions.length && (
-                <>
-                  <div className="fq-section-title" style={{ marginTop: 10 }}>
-                    Assumptions possibly stressed
+            {/* PRIMARY CTA — what to do right now */}
+            {suggestedFlow && (
+              <div
+                className="fq-card"
+                style={{ borderLeft: "3px solid #58a6ff", cursor: "pointer" }}
+                onClick={() => {
+                  setActiveFlowId(suggestedFlow.id);
+                  setView("flow");
+                }}
+              >
+                <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>
+                  {flowsHere.includes(suggestedFlow) ? `Test this page` : `Suggested flow`}
+                </div>
+                <strong style={{ fontSize: 15 }}>{suggestedFlow.title}</strong>
+                {suggestedFlow.strategic_intent && (
+                  <div style={{ marginTop: 4, fontSize: 13 }}>
+                    {suggestedFlow.strategic_intent}
                   </div>
-                  <ul style={{ margin: 0, paddingLeft: 16 }}>
-                    {hotAssumptions.map((a) => (
-                      <li key={a}>{a}</li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </div>
-
-            {!!observations.length && (
-              <div className="fq-card">
-                <div className="fq-section-title">AI noticed {observations.length} things</div>
-                <div className="fq-list">
-                  {observations.map((o, i) => (
-                    <div key={i} style={{ marginBottom: 8 }}>
-                      <strong>{o.type}:</strong> {o.observation}
-                      {o.suggested_assumption && (
-                        <div className="fq-muted" style={{ marginTop: 2, fontSize: 12 }}>
-                          Suggested assumption: {o.suggested_assumption}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                )}
+                <div className="fq-row" style={{ marginTop: 8 }}>
+                  <button type="button" className="fq-btn fq-btn-primary" onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveFlowId(suggestedFlow.id);
+                    setView("flow");
+                  }}>
+                    Start flow
+                  </button>
+                  {suggestedFlow.eval_dimension && (
+                    <span className="fq-chip">{suggestedFlow.eval_dimension}</span>
+                  )}
+                  {hotFlows.some((h) => h.id === suggestedFlow.id) && (
+                    <span className="fq-chip fq-chip-hot">Changed</span>
+                  )}
                 </div>
               </div>
             )}
 
-            <div>
-              <div className="fq-section-title">Flows</div>
-              <div className="fq-list">
+            {/* CONTEXTUAL OBSERVATION — relevant to this page */}
+            {pageObservations.length > 0 && (
+              <div className="fq-card" style={{ borderLeft: "3px solid #d29922" }}>
+                <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>
+                  On this page
+                </div>
+                {pageObservations.slice(0, 2).map((o, i) => (
+                  <div key={i} style={{ marginTop: i > 0 ? 8 : 4, fontSize: 13 }}>
+                    {o.observation}
+                    {o.suggested_assumption && (
+                      <div className="fq-muted" style={{ marginTop: 2, fontSize: 12, fontStyle: "italic" }}>
+                        Assumption: {o.suggested_assumption}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* CURRENT STEP CONTEXT — what to look for right now */}
+            {currentStep && (
+              <div className="fq-card">
+                <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>
+                  What to look for
+                </div>
+                {currentStep.success_looks_like && (
+                  <div style={{ marginTop: 4, fontSize: 13 }}>
+                    <span style={{ color: "#3fb950" }}>Success:</span> {currentStep.success_looks_like}
+                  </div>
+                )}
+                {currentStep.failure_signal && (
+                  <div style={{ marginTop: 4, fontSize: 13 }}>
+                    <span style={{ color: "#f85149" }}>Failure:</span> {currentStep.failure_signal}
+                  </div>
+                )}
+                {currentStep.assumption_dependency && (
+                  <div style={{ marginTop: 4, fontSize: 13 }}>
+                    <span style={{ color: "#d29922" }}>Assumption:</span> {currentStep.assumption_dependency}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* GIT-CHANGED ASSUMPTIONS */}
+            {!!hotAssumptions.length && (
+              <div className="fq-card">
+                <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>
+                  Assumptions stressed by recent changes
+                </div>
+                {hotAssumptions.map((a, i) => (
+                  <div key={i} style={{ marginTop: 4, fontSize: 13 }}>{a}</div>
+                ))}
+              </div>
+            )}
+
+            {/* OPEN ISSUES SUMMARY — only show if there are issues */}
+            {issues.length > 0 && (
+              <div className="fq-card">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <strong>{issues.length} issue{issues.length !== 1 ? "s" : ""}</strong>
+                    <span className="fq-muted" style={{ marginLeft: 8 }}>
+                      {[
+                        issueTypeCounts.bug && `${issueTypeCounts.bug} bug${issueTypeCounts.bug !== 1 ? "s" : ""}`,
+                        issueTypeCounts.ux_friction && `${issueTypeCounts.ux_friction} UX`,
+                        issueTypeCounts.strategic_gap && `${issueTypeCounts.strategic_gap} strategic`,
+                        issueTypeCounts.assumption_evidence && `${issueTypeCounts.assumption_evidence} evidence`,
+                      ].filter(Boolean).join(" · ")}
+                    </span>
+                  </div>
+                </div>
+                <div className="fq-row" style={{ marginTop: 8 }}>
+                  <button type="button" className="fq-btn" onClick={() => setView("issues")}>View</button>
+                  <button type="button" className="fq-btn fq-btn-primary" onClick={onExportMd}>Export MD</button>
+                  <button type="button" className="fq-btn" onClick={onExportJson}>JSON</button>
+                </div>
+              </div>
+            )}
+
+            {/* ALL FLOWS — collapsed, secondary */}
+            <details className="fq-collapse">
+              <summary style={{ cursor: "pointer" }}>
+                All flows ({bundle.flows.length})
+              </summary>
+              <div className="fq-list" style={{ marginTop: 8 }}>
                 {[...bundle.flows]
                   .sort((a, b) => {
                     const ah = hotFlows.some((h) => h.id === a.id) ? 0 : 1;
                     const bh = hotFlows.some((h) => h.id === b.id) ? 0 : 1;
-                    return ah - bh || a.title.localeCompare(b.title);
+                    if (ah !== bh) return ah - bh;
+                    const aHere = flowsHere.some((fh) => fh.id === a.id) ? 0 : 1;
+                    const bHere = flowsHere.some((fh) => fh.id === b.id) ? 0 : 1;
+                    return aHere - bHere || a.title.localeCompare(b.title);
                   })
                   .map((f) => {
                     const visitedCount = f.steps.filter((s) => visited[s]).length;
                     const issueCount = issues.filter((i) => i.flowId === f.id).length;
                     const hot = hotFlows.some((h) => h.id === f.id);
+                    const here = flowsHere.some((fh) => fh.id === f.id);
                     return (
                       <div
                         key={f.id}
@@ -783,21 +833,14 @@ function SidebarInner(props: {
                         onClick={() => {
                           setActiveFlowId(f.id);
                           setView("flow");
-                          const matchSid =
-                            matchingStepIds.find((id) => f.steps.includes(id)) ?? f.steps[0];
-                          const st = matchSid ? bundle.steps[matchSid] : undefined;
-                          if (st?.assumption_dependency) {
-                            setIssueDraft((d) => ({
-                              ...d,
-                              type: "assumption_evidence",
-                              evidence_direction: d.evidence_direction || "ambiguous",
-                            }));
-                          }
                         }}
                       >
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                           <strong>{f.title}</strong>
-                          {hot && <span className="fq-chip fq-chip-hot">Changed</span>}
+                          <span>
+                            {hot && <span className="fq-chip fq-chip-hot">Changed</span>}
+                            {here && <span className="fq-chip" style={{ marginLeft: 4 }}>Here</span>}
+                          </span>
                         </div>
                         <div className="fq-muted">
                           {visitedCount}/{f.steps.length} steps · {issueCount} issues
@@ -807,37 +850,67 @@ function SidebarInner(props: {
                             </span>
                           )}
                         </div>
-                        {f.strategic_intent && (
-                          <div className="fq-muted" style={{ marginTop: 6 }}>
-                            {f.strategic_intent}
-                          </div>
-                        )}
                       </div>
                     );
                   })}
               </div>
-            </div>
+            </details>
 
-            <div className="fq-card">
-              <div className="fq-section-title">Open issues</div>
-              <div>
-                bugs: {issueTypeCounts.bug} · ux_friction: {issueTypeCounts.ux_friction} · strategic_gap:{" "}
-                {issueTypeCounts.strategic_gap} · assumption_evidence: {issueTypeCounts.assumption_evidence}
+            {/* OTHER OBSERVATIONS — collapsed */}
+            {otherObservations.length > 0 && (
+              <details className="fq-collapse">
+                <summary style={{ cursor: "pointer" }}>
+                  {pageObservations.length > 0
+                    ? `${otherObservations.length} more observation${otherObservations.length !== 1 ? "s" : ""}`
+                    : `AI noticed ${observations.length} things`}
+                </summary>
+                <div className="fq-list" style={{ marginTop: 8 }}>
+                  {otherObservations.map((o, i) => (
+                    <div key={i} style={{ marginBottom: 8, fontSize: 13 }}>
+                      <strong>{o.type}:</strong> {o.observation}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+
+            {/* EXPORT — only if no issues yet (otherwise shown in issues card above) */}
+            {issues.length === 0 && (
+              <div className="fq-row">
+                <button type="button" className="fq-btn" onClick={onExportMd}>Export MD</button>
+                <button type="button" className="fq-btn" onClick={onExportJson}>Export JSON</button>
               </div>
-              <div className="fq-row" style={{ marginTop: 8 }}>
-                <button type="button" className="fq-btn" onClick={() => setView("issues")}>
-                  View issues
-                </button>
-                <button type="button" className="fq-btn fq-btn-primary" onClick={onExportMd}>
-                  Copy MD export
-                </button>
-                <button type="button" className="fq-btn" onClick={onExportJson}>
-                  Copy JSON
-                </button>
+            )}
+
+            {/* TOOLS — viewport, facade */}
+            <details className="fq-collapse">
+              <summary style={{ cursor: "pointer" }}>Tools</summary>
+              <div style={{ marginTop: 8 }}>
+                <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Viewport</div>
+                <div className="fq-row" style={{ marginTop: 4 }}>
+                  {(["375", "414", "768", "full"] as const).map((v) => (
+                    <button key={v} type="button" className="fq-btn" data-active={viewport === v} onClick={() => setViewport(v)}>
+                      {v === "full" ? "Full" : `${v}px`}
+                    </button>
+                  ))}
+                </div>
+                <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginTop: 12 }}>Facade</div>
+                <div className="fq-row" style={{ marginTop: 4 }}>
+                  <button type="button" className="fq-btn" onClick={() => onApplyFacadeMode("off")}>Off</button>
+                  <button type="button" className="fq-btn" onClick={() => onApplyFacadeMode("empty_state")}>Empty-state</button>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <div className="fq-label">Copy patch — selector</div>
+                  <input className="fq-input" value={copySelector} onChange={(e) => setCopySelector(e.target.value)} placeholder="#hero-title" />
+                  <div className="fq-label">Replacement</div>
+                  <input className="fq-input" value={copyText} onChange={(e) => setCopyText(e.target.value)} placeholder="New text" />
+                  <button type="button" className="fq-btn" style={{ marginTop: 4 }} onClick={onApplyCopy}>Apply</button>
+                </div>
               </div>
-            </div>
+            </details>
           </>
-        )}
+          );
+        })()}
 
         {view === "flow" && activeFlow && (
           <div className="fq-card">
