@@ -859,9 +859,19 @@ function SidebarInner(props: {
   });
   const otherObservations = observations.filter((o) => !pageObservations.includes(o));
 
+  // Strategy: only surface assumptions that are actionable (at_risk or mixed)
+  const actionableAssumptions = strategyState?.assumptions.filter(
+    (a) => a.status === "at_risk" || a.status === "mixed"
+  ) ?? [];
+
+  // Strategy: only surface high/medium signals (skip "low" noise)
+  const importantSignals = strategyState?.signals.filter(
+    (s) => s.severity === "high" || s.severity === "medium"
+  ) ?? [];
+
   return (
     <div className="fq-root">
-      {/* ── HEADER: brand + flow dropdown ── */}
+      {/* ── HEADER ── */}
       <div className="fq-header">
         <div className="fq-brand">Flow QA</div>
         <select
@@ -870,7 +880,7 @@ function SidebarInner(props: {
           onChange={(e) => setActiveFlowId(e.target.value || null)}
         >
           <option value="">
-            {suggestedFlow ? `Auto: ${suggestedFlow.title}` : "Select a flow..."}
+            {suggestedFlow ? suggestedFlow.title : "Select a flow..."}
           </option>
           {segFlows.map((f) => {
             const staleCount = f.steps.filter((s) => stale.has(s)).length;
@@ -890,48 +900,11 @@ function SidebarInner(props: {
       <div className="fq-body">
         {facadeMode !== "off" && (
           <div className="fq-banner">
-            Facade mode active: <strong>{facadeMode}</strong> — preview only, not real app state.
+            Facade: <strong>{facadeMode}</strong> — preview only.
           </div>
         )}
 
-        {/* STRATEGY HEALTH — compact inline status */}
-        {(() => {
-          const staleCount = stale.size;
-          const gapCount = gaps ? gaps.flowsMissingIntent.length : 0;
-          const evidenceIssues = issues.filter((i) => i.type === "assumption_evidence");
-          const testedCount = new Set(evidenceIssues.map((i) => {
-            const step = bundle.steps[i.stepId];
-            return step?.assumption_dependency;
-          }).filter(Boolean)).size;
-          const totalAssumptions = gaps?.totalAssumptions.length ?? 0;
-          const allVisitedCount = Object.keys(visited).length;
-          const totalFlowSteps = bundle.flows.reduce((n, f) => n + f.steps.length, 0);
-          const hasGaps = gapCount > 0;
-          const hasStale = staleCount > 0;
-          const hasUntested = totalAssumptions > 0 && testedCount < totalAssumptions;
-          const allGood = !hasGaps && !hasStale && !hasUntested && allVisitedCount >= totalFlowSteps;
-
-          if (allGood) return null;
-
-          return (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-              {hasStale && (
-                <span className="fq-stat"><span className="fq-stat-dot fq-dot-amber" />{staleCount} stale</span>
-              )}
-              {hasGaps && (
-                <span className="fq-stat"><span className="fq-stat-dot fq-dot-red" />{gapCount} no intent</span>
-              )}
-              {hasUntested && (
-                <span className="fq-stat"><span className="fq-stat-dot fq-dot-amber" />{testedCount}/{totalAssumptions} tested</span>
-              )}
-              {!hasStale && !hasGaps && !hasUntested && allVisitedCount < totalFlowSteps && (
-                <span className="fq-stat"><span className="fq-stat-dot fq-dot-muted" />{totalFlowSteps - allVisitedCount} unvisited</span>
-              )}
-            </div>
-          );
-        })()}
-
-        {/* Segment picker */}
+        {/* Segment picker — with coverage counts baked in */}
         {segments.length > 1 && (
           <div className="fq-segment-picker">
             <button
@@ -939,21 +912,39 @@ function SidebarInner(props: {
               className={`fq-segment-btn ${selectedSegment === null ? "fq-segment-btn-active" : ""}`}
               onClick={() => setSelectedSegment(null)}
             >All</button>
-            {segments.map((s) => (
-              <button
-                key={s}
-                type="button"
-                className={`fq-segment-btn ${selectedSegment === s ? "fq-segment-btn-active" : ""}`}
-                onClick={() => setSelectedSegment(selectedSegment === s ? null : s)}
-              >{s}</button>
+            {segments.map((s) => {
+              const seg = strategyState?.segments.find((sc) => sc.segment === s);
+              const pct = seg ? Math.round(seg.coverage * 100) : null;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  className={`fq-segment-btn ${selectedSegment === s ? "fq-segment-btn-active" : ""}`}
+                  onClick={() => setSelectedSegment(selectedSegment === s ? null : s)}
+                >
+                  {s}{pct !== null && <span className="fq-segment-pct">{pct}%</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── ALERTS — only if something needs attention ── */}
+        {importantSignals.length > 0 && (
+          <div className="fq-alerts">
+            {importantSignals.slice(0, 3).map((sig, i) => (
+              <div key={i} className={`fq-alert fq-alert-${sig.severity}`}>
+                <span className="fq-alert-title">{sig.title}</span>
+                <span className="fq-alert-detail">{sig.detail}</span>
+              </div>
             ))}
           </div>
         )}
 
-        {/* ── WHAT CHANGED — changes-first default view ── */}
+        {/* ── WHAT CHANGED ── */}
         {changeGroups.length > 0 && (
           <div className="fq-change-section">
-            <div className="fq-section-title">What changed</div>
+            <div className="fq-section-label">What changed</div>
             {changeGroups.map((g, gi) => (
               <div key={gi} className="fq-change-group">
                 <div className="fq-change-file">
@@ -967,7 +958,6 @@ function SidebarInner(props: {
                       key={stepId}
                       className="fq-change-step"
                       onClick={() => {
-                        // Select the flow that contains this step
                         const flow = bundle.flows.find((f) => f.steps.includes(stepId));
                         if (flow) setActiveFlowId(flow.id);
                       }}
@@ -987,139 +977,7 @@ function SidebarInner(props: {
           </div>
         )}
 
-        {/* ── STRATEGY INTELLIGENCE — assumption health + signals ── */}
-        {strategyState && (strategyState.signals.length > 0 || strategyState.assumptions.some((a) => a.status !== "untested")) && (
-          <div className="fq-strategy-section">
-            {/* Signals — actionable takeaways */}
-            {strategyState.signals.length > 0 && (
-              <>
-                <div className="fq-section-title">Strategy signals</div>
-                {strategyState.signals.slice(0, 4).map((sig, i) => (
-                  <div key={i} className={`fq-signal fq-signal-${sig.severity}`}>
-                    <span className={`fq-signal-dot fq-dot-${sig.severity === "high" ? "red" : sig.severity === "medium" ? "amber" : "muted"}`} />
-                    <div className="fq-signal-content">
-                      <div className="fq-signal-title">{sig.title}</div>
-                      <div className="fq-signal-detail">{sig.detail}</div>
-                    </div>
-                  </div>
-                ))}
-                {strategyState.signals.length > 4 && (
-                  <details className="fq-collapse" style={{ marginTop: 4 }}>
-                    <summary>{strategyState.signals.length - 4} more signal{strategyState.signals.length - 4 !== 1 ? "s" : ""}</summary>
-                    <div style={{ marginTop: 6 }}>
-                      {strategyState.signals.slice(4).map((sig, i) => (
-                        <div key={i} className={`fq-signal fq-signal-${sig.severity}`}>
-                          <span className={`fq-signal-dot fq-dot-${sig.severity === "high" ? "red" : sig.severity === "medium" ? "amber" : "muted"}`} />
-                          <div className="fq-signal-content">
-                            <div className="fq-signal-title">{sig.title}</div>
-                            <div className="fq-signal-detail">{sig.detail}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                )}
-              </>
-            )}
-
-            {/* Assumption health — compact pills */}
-            {strategyState.assumptions.length > 0 && (
-              <details className="fq-collapse" open={strategyState.assumptions.some((a) => a.status === "at_risk" || a.status === "mixed")}>
-                <summary>
-                  Assumptions ({strategyState.assumptions.length})
-                  {(() => {
-                    const risk = strategyState.assumptions.filter((a) => a.status === "at_risk").length;
-                    const mixed = strategyState.assumptions.filter((a) => a.status === "mixed").length;
-                    const confirmed = strategyState.assumptions.filter((a) => a.status === "confirmed").length;
-                    const parts: string[] = [];
-                    if (risk) parts.push(`${risk} at risk`);
-                    if (mixed) parts.push(`${mixed} mixed`);
-                    if (confirmed) parts.push(`${confirmed} confirmed`);
-                    return parts.length ? ` — ${parts.join(", ")}` : "";
-                  })()}
-                </summary>
-                <div className="fq-assumption-list">
-                  {strategyState.assumptions.map((a, i) => (
-                    <div key={i} className={`fq-assumption fq-assumption-${a.status}`}>
-                      <div className="fq-assumption-header">
-                        <span className={`fq-assumption-badge fq-badge-${a.status}`}>
-                          {a.status === "at_risk" ? "AT RISK" : a.status === "mixed" ? "MIXED" : a.status === "confirmed" ? "OK" : "UNTESTED"}
-                        </span>
-                        <span className="fq-assumption-counts">
-                          {a.supports + a.contradicts + a.ambiguous > 0
-                            ? `${a.supports}↑ ${a.contradicts}↓ ${a.ambiguous}~`
-                            : `${a.flowIds.length} flow${a.flowIds.length !== 1 ? "s" : ""}`}
-                        </span>
-                      </div>
-                      <div className="fq-assumption-text">{a.assumption}</div>
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
-
-            {/* Segment coverage — only if multiple segments */}
-            {strategyState.segments.length > 1 && (
-              <details className="fq-collapse">
-                <summary>
-                  Segment coverage
-                  {(() => {
-                    const low = strategyState.segments.filter((s) => s.coverage < 0.3).length;
-                    return low ? ` — ${low} under-tested` : "";
-                  })()}
-                </summary>
-                <div style={{ marginTop: 6 }}>
-                  {strategyState.segments.map((seg, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, fontSize: 12 }}>
-                      <span style={{ minWidth: 80 }}>{seg.segment}</span>
-                      <div className="fq-progress-bar" style={{ flex: 1 }}>
-                        <div
-                          className="fq-progress-fill"
-                          style={{
-                            width: `${Math.round(seg.coverage * 100)}%`,
-                            background: seg.coverage < 0.3 ? "var(--fq-danger)" : seg.coverage < 0.7 ? "var(--fq-warn)" : "var(--fq-ok)",
-                          }}
-                        />
-                      </div>
-                      <span className="fq-muted" style={{ fontSize: 10, whiteSpace: "nowrap" }}>
-                        {seg.visitedSteps}/{seg.totalSteps}
-                        {seg.staleSteps > 0 && <span style={{ color: "var(--fq-warn)", marginLeft: 4 }}>{seg.staleSteps} stale</span>}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
-          </div>
-        )}
-
-        {/* ── CONTEXTUAL OBSERVATIONS — truncated one-liners ── */}
-        {pageObservations.length > 0 && (
-          <div className="fq-card" style={{ borderLeft: "3px solid #d29922" }}>
-            <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-              On this page
-            </div>
-            {pageObservations.slice(0, 3).map((o, i) => {
-              const text = o.observation;
-              const short = text.length > 90 ? text.slice(0, 87) + "..." : text;
-              return (
-                <details key={i} style={{ fontSize: 12, marginTop: i > 0 ? 2 : 0 }}>
-                  <summary style={{ cursor: "pointer", listStyle: "none" }}>
-                    <span style={{ color: "var(--fq-muted)", marginRight: 4 }}>&rsaquo;</span>{short}
-                  </summary>
-                  {text.length > 90 && <div style={{ fontSize: 12, marginTop: 4, paddingLeft: 12, color: "var(--fq-muted)" }}>{text}</div>}
-                  {o.suggested_assumption && (
-                    <div style={{ fontSize: 11, marginTop: 2, paddingLeft: 12, fontStyle: "italic", color: "var(--fq-warn)" }}>
-                      Assumption: {o.suggested_assumption}
-                    </div>
-                  )}
-                </details>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ── FLOW CHECKLIST — selected or auto-suggested flow ── */}
+        {/* ── FLOW CHECKLIST ── */}
         {displayFlow && (() => {
           const visitedCount = displayFlow.steps.filter((s) => visited[s]).length;
           const totalSteps = displayFlow.steps.length;
@@ -1134,28 +992,30 @@ function SidebarInner(props: {
 
           return (
           <>
-            {/* Flow header — compact */}
+            {/* Flow header */}
             <div className="fq-flow-header-compact">
               <h3>{displayFlow.title}</h3>
               {displayFlow.strategic_intent && (() => {
                 const si = displayFlow.strategic_intent;
                 const short = si.length > 80 ? si.slice(0, 77) + "..." : si;
                 return si.length > 80 ? (
-                  <details style={{ marginBottom: 6 }}>
+                  <details style={{ marginBottom: 4 }}>
                     <summary className="fq-muted" style={{ cursor: "pointer", listStyle: "none" }}>{short}</summary>
                     <div className="fq-muted" style={{ marginTop: 2 }}>{si}</div>
                   </details>
                 ) : (
-                  <div className="fq-muted" style={{ marginBottom: 6 }}>{si}</div>
+                  <div className="fq-muted" style={{ marginBottom: 4 }}>{si}</div>
                 );
               })()}
-              <div className="fq-row" style={{ marginBottom: 6 }}>
-                {displayFlow.segment && <span className="fq-chip">{displayFlow.segment}</span>}
-                {displayFlow.eval_dimension && <span className="fq-chip">{displayFlow.eval_dimension}</span>}
-              </div>
+              {(displayFlow.segment || displayFlow.eval_dimension) && (
+                <div className="fq-row" style={{ marginBottom: 4 }}>
+                  {displayFlow.segment && <span className="fq-chip">{displayFlow.segment}</span>}
+                  {displayFlow.eval_dimension && <span className="fq-chip">{displayFlow.eval_dimension}</span>}
+                </div>
+              )}
             </div>
 
-            {/* Progress bar + session info */}
+            {/* Progress */}
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div className="fq-progress-bar" style={{ flex: 1 }}>
                 <div className="fq-progress-fill" style={{ width: `${pct}%` }} />
@@ -1173,8 +1033,26 @@ function SidebarInner(props: {
             </div>
             {flowSession?.completed && flowSession.flowId === displayFlow.id && (
               <div className="fq-session-complete">
-                Flow complete — ready to copy session
+                Flow complete
               </div>
+            )}
+
+            {/* Contextual observations — folded into flow, before steps */}
+            {pageObservations.length > 0 && (
+              <details className="fq-collapse" style={{ marginTop: 4 }}>
+                <summary>{pageObservations.length} observation{pageObservations.length !== 1 ? "s" : ""} on this page</summary>
+                <div style={{ marginTop: 6 }}>
+                  {pageObservations.slice(0, 3).map((o, i) => {
+                    const text = o.observation;
+                    const short = text.length > 80 ? text.slice(0, 77) + "..." : text;
+                    return (
+                      <div key={i} style={{ fontSize: 12, marginBottom: 4, color: "var(--fq-muted)" }}>
+                        {short}
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
             )}
 
             {/* Next step prompt */}
@@ -1209,7 +1087,6 @@ function SidebarInner(props: {
                     key={sid}
                     className={`fq-check-step ${isActive ? "fq-check-step-active" : ""} ${isNext ? "fq-check-step-next" : ""}`}
                   >
-                    {/* Checkbox */}
                     <div
                       className={`fq-check-box ${isDone && !isStale ? "fq-check-box-done" : ""} ${isStale ? "fq-check-box-stale" : ""} ${isActive && !isDone && !isStale ? "fq-check-box-active" : ""}`}
                       onClick={() => onToggleVisited(sid)}
@@ -1225,7 +1102,6 @@ function SidebarInner(props: {
                       )}
                     </div>
 
-                    {/* Content */}
                     <div className="fq-check-content">
                       <div className={`fq-check-instruction ${isDone && !isActive ? "fq-check-instruction-done" : ""}`}>
                         <span style={{ color: "var(--fq-muted)", marginRight: 4 }}>{idx + 1}.</span>
@@ -1239,7 +1115,6 @@ function SidebarInner(props: {
                         })()}
                       </div>
 
-                      {/* Inline strategic context */}
                       {showContext && (st.success_looks_like || st.failure_signal || st.assumption_dependency) && (() => {
                         const trunc = (s: string, n = 70) => s.length > n ? s.slice(0, n - 1) + "..." : s;
                         return (
@@ -1262,7 +1137,6 @@ function SidebarInner(props: {
                         );
                       })()}
 
-                      {/* Inline notes — single-line input, expands to textarea on open */}
                       <div className="fq-inline-note-area">
                         {notesOpen ? (
                           <textarea
@@ -1299,34 +1173,50 @@ function SidebarInner(props: {
               });
               })()}
             </div>
-
-            {/* Assumptions tested — compact */}
-            {!!displayFlow.assumptions_tested?.length && (
-              <details className="fq-collapse">
-                <summary>Assumptions being tested ({displayFlow.assumptions_tested.length})</summary>
-                <div style={{ marginTop: 6 }}>
-                  {displayFlow.assumptions_tested.map((a, i) => (
-                    <div key={i} style={{ fontSize: 12, marginBottom: 4, paddingLeft: 8, borderLeft: "2px solid var(--fq-warn)" }}>{a}</div>
-                  ))}
-                </div>
-              </details>
-            )}
           </>
           );
         })()}
 
-        {/* ── OPEN ISSUES — inline ── */}
-        {issues.length > 0 && (
-          <details className="fq-collapse" open={issues.length <= 5}>
+        {/* ── ASSUMPTIONS AT RISK — only actionable ones ── */}
+        {actionableAssumptions.length > 0 && (
+          <details className="fq-collapse" open>
             <summary>
-              {issues.length} issue{issues.length !== 1 ? "s" : ""}{" "}
-              <span className="fq-muted">
-                ({[
+              {actionableAssumptions.length} assumption{actionableAssumptions.length !== 1 ? "s" : ""} need attention
+            </summary>
+            <div className="fq-assumption-list">
+              {actionableAssumptions.slice(0, 5).map((a, i) => (
+                <div key={i} className={`fq-assumption fq-assumption-${a.status}`}>
+                  <div className="fq-assumption-header">
+                    <span className={`fq-assumption-badge fq-badge-${a.status}`}>
+                      {a.status === "at_risk" ? "AT RISK" : "MIXED"}
+                    </span>
+                    <span className="fq-assumption-counts">
+                      {a.supports}&#8593; {a.contradicts}&#8595;
+                    </span>
+                  </div>
+                  <div className="fq-assumption-text">{a.assumption}</div>
+                </div>
+              ))}
+              {actionableAssumptions.length > 5 && (
+                <div className="fq-muted" style={{ fontSize: 11, marginTop: 4 }}>
+                  +{actionableAssumptions.length - 5} more
+                </div>
+              )}
+            </div>
+          </details>
+        )}
+
+        {/* ── ISSUES ── */}
+        {issues.length > 0 && (
+          <details className="fq-collapse" open={issues.length <= 3}>
+            <summary>
+              {issues.length} issue{issues.length !== 1 ? "s" : ""}
+              <span className="fq-muted" style={{ marginLeft: 4 }}>
+                {[
                   issueTypeCounts.bug && `${issueTypeCounts.bug} bug${issueTypeCounts.bug !== 1 ? "s" : ""}`,
                   issueTypeCounts.ux_friction && `${issueTypeCounts.ux_friction} UX`,
                   issueTypeCounts.strategic_gap && `${issueTypeCounts.strategic_gap} strategic`,
-                  issueTypeCounts.assumption_evidence && `${issueTypeCounts.assumption_evidence} evidence`,
-                ].filter(Boolean).join(", ")})
+                ].filter(Boolean).join(", ")}
               </span>
             </summary>
             <div className="fq-list" style={{ marginTop: 8 }}>
@@ -1339,7 +1229,6 @@ function SidebarInner(props: {
                       {i.severity && <span className="fq-muted" style={{ fontSize: 10 }}>{i.severity}</span>}
                     </div>
                     <div style={{ fontSize: 12, marginTop: 4 }}>{i.notes}</div>
-                    {i.strategic_note && <div style={{ fontSize: 11, marginTop: 2, color: "var(--fq-muted)", fontStyle: "italic" }}>{i.strategic_note}</div>}
                     <div className="fq-muted" style={{ fontSize: 10, marginTop: 4 }}>
                       {step?.instructions ?? i.stepId}
                     </div>
@@ -1350,7 +1239,7 @@ function SidebarInner(props: {
           </details>
         )}
 
-        {/* ── LOG ISSUE — collapsed ── */}
+        {/* ── LOG ISSUE ── */}
         {displayFlow && (
           <details className="fq-collapse">
             <summary>Log an issue</summary>
@@ -1457,31 +1346,29 @@ function SidebarInner(props: {
           </details>
         )}
 
-        {/* ── OTHER OBSERVATIONS — collapsed ── */}
+        {/* ── OBSERVATIONS — collapsed, deduped from page observations shown above ── */}
         {otherObservations.length > 0 && (
           <details className="fq-collapse">
             <summary>
-              {pageObservations.length > 0
-                ? `${otherObservations.length} more observation${otherObservations.length !== 1 ? "s" : ""}`
-                : `AI noticed ${observations.length} things`}
+              {otherObservations.length} observation{otherObservations.length !== 1 ? "s" : ""}
             </summary>
             <div className="fq-list" style={{ marginTop: 8 }}>
               {otherObservations.map((o, i) => (
-                <div key={i} style={{ marginBottom: 8, fontSize: 13 }}>
-                  <strong>{o.type}:</strong> {o.observation}
+                <div key={i} style={{ marginBottom: 6, fontSize: 12, color: "var(--fq-muted)" }}>
+                  {o.observation}
                 </div>
               ))}
             </div>
           </details>
         )}
 
-        {/* ── TOOLS & EXPORT — collapsed ── */}
+        {/* ── TOOLS ── */}
         <details className="fq-collapse">
-          <summary style={{ cursor: "pointer" }}>Tools & export</summary>
+          <summary>Tools</summary>
           <div style={{ marginTop: 8 }}>
-            <div className="fq-row" style={{ marginBottom: 12 }}>
+            <div className="fq-row" style={{ marginBottom: 8 }}>
               <button type="button" className="fq-btn" onClick={onExportMd}>Export MD</button>
-              <button type="button" className="fq-btn" onClick={onExportJson}>Export JSON</button>
+              <button type="button" className="fq-btn" onClick={onExportJson}>JSON</button>
             </div>
             <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Viewport</div>
             <div className="fq-row" style={{ marginTop: 4 }}>
@@ -1491,30 +1378,23 @@ function SidebarInner(props: {
                 </button>
               ))}
             </div>
-            <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginTop: 12 }}>Facade</div>
+            <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginTop: 8 }}>Facade</div>
             <div className="fq-row" style={{ marginTop: 4 }}>
               <button type="button" className="fq-btn" onClick={() => onApplyFacadeMode("off")}>Off</button>
               <button type="button" className="fq-btn" onClick={() => onApplyFacadeMode("empty_state")}>Empty-state</button>
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <div className="fq-label">Copy patch — selector</div>
-              <input className="fq-input" value={copySelector} onChange={(e) => setCopySelector(e.target.value)} placeholder="#hero-title" />
-              <div className="fq-label">Replacement</div>
-              <input className="fq-input" value={copyText} onChange={(e) => setCopyText(e.target.value)} placeholder="New text" />
-              <button type="button" className="fq-btn" style={{ marginTop: 4 }} onClick={onApplyCopy}>Apply</button>
             </div>
           </div>
         </details>
       </div>
 
-      {/* ── STICKY FOOTER: Copy session ── */}
+      {/* ── STICKY FOOTER ── */}
       <div className="fq-footer">
         <button
           type="button"
           className={`fq-btn fq-btn-copy ${copied ? "fq-btn-copy-done" : ""}`}
           onClick={onCopySession}
         >
-          {copied ? "Copied!" : "Copy session"}
+          {copied ? "Copied!" : "Copy prompt"}
         </button>
       </div>
     </div>

@@ -1,0 +1,10 @@
+---
+description: How Flow QA is published and consumed; avoid npm confusion
+alwaysApply: true
+---
+
+# unprompted-flow-qa — consumption model
+
+- This package is **not** assumed to be on the public **npm** registry. Role Scout and other hosts typically use a **`file:`** dependency pointing at this repo (e.g. `"unprompted-flow-qa": "file:../../flow-qa"`).
+- After changing this package, consumers must **`npm run build`** here, then **`npm install`** in the host app so the linked copy updates.
+- Do not instruct users to `npm install unprompted-flow-qa@latest` unless they have **explicitly published** this package and switched the host to the registry version.
