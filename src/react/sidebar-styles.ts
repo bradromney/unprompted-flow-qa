@@ -104,7 +104,7 @@ export const SIDEBAR_CSS = `
 .fq-check-box-stale { border-color: var(--fq-warn); background: rgba(210,153,34,0.15); box-shadow: 0 0 0 2px rgba(210,153,34,0.2); }
 .fq-check-content { flex: 1; min-width: 0; }
 .fq-check-instruction { font-size: 13px; line-height: 1.3; }
-.fq-check-instruction-done { text-decoration: line-through; opacity: 0.5; }
+.fq-check-instruction-done { opacity: 0.45; }
 .fq-check-meta { font-size: 11px; color: var(--fq-muted); margin-top: 2px; }
 .fq-check-context { font-size: 12px; margin-top: 4px; padding: 6px 8px; background: rgba(255,255,255,0.02); border-radius: 4px; }
 .fq-progress-bar { height: 4px; border-radius: 2px; background: var(--fq-border); overflow: hidden; }
@@ -119,8 +119,12 @@ export const SIDEBAR_CSS = `
 .fq-flow-header-compact h3 { margin: 0 0 2px; font-size: 15px; }
 .fq-notes-toggle {
   font-size: 11px; color: var(--fq-muted); cursor: pointer;
-  background: none; border: none; padding: 2px 0; text-decoration: underline;
+  background: none; border: none; padding: 2px 0;
+  opacity: 0; transition: opacity 0.15s;
 }
+.fq-check-step:hover .fq-notes-toggle,
+.fq-check-step-active .fq-notes-toggle,
+.fq-notes-toggle-has-note { opacity: 1; }
 .fq-notes-toggle:hover { color: var(--fq-text); }
 .fq-input, .fq-textarea, .fq-select {
   width: 100%;

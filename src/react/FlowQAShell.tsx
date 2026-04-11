@@ -704,18 +704,12 @@ function SidebarInner(props: {
   return (
     <div className="fq-root">
       <div className="fq-header">
-        <div>
-          <div className="fq-brand">Flow QA</div>
-          <div className="fq-muted">Strategic session</div>
-        </div>
-        <div className="fq-row">
-          <button type="button" className="fq-btn" onClick={() => setView("home")}>
-            Home
+        <div className="fq-brand" style={{ cursor: "pointer" }} onClick={() => setView("home")}>Flow QA</div>
+        {issues.length > 0 && (
+          <button type="button" className="fq-btn" style={{ fontSize: 11, padding: "4px 8px" }} onClick={() => setView("issues")}>
+            {issues.length} issue{issues.length !== 1 ? "s" : ""}
           </button>
-          <button type="button" className="fq-btn" onClick={() => setView("issues")}>
-            Issues ({issues.length})
-          </button>
-        </div>
+        )}
       </div>
 
       <div className="fq-body">
@@ -725,9 +719,8 @@ function SidebarInner(props: {
           </div>
         )}
 
-        {/* STRATEGY HEALTH BAR — always visible */}
+        {/* STRATEGY HEALTH — compact inline status */}
         {(() => {
-          const totalSteps = Object.keys(bundle.steps).length;
           const staleCount = stale.size;
           const gapCount = gaps ? gaps.flowsMissingIntent.length : 0;
           const evidenceIssues = issues.filter((i) => i.type === "assumption_evidence");
@@ -738,61 +731,27 @@ function SidebarInner(props: {
           const totalAssumptions = gaps?.totalAssumptions.length ?? 0;
           const allVisitedCount = Object.keys(visited).length;
           const totalFlowSteps = bundle.flows.reduce((n, f) => n + f.steps.length, 0);
-
-          // Determine overall health
           const hasGaps = gapCount > 0;
           const hasStale = staleCount > 0;
           const hasUntested = totalAssumptions > 0 && testedCount < totalAssumptions;
           const allGood = !hasGaps && !hasStale && !hasUntested && allVisitedCount >= totalFlowSteps;
 
+          // Show nothing if all good — don't waste space on green
+          if (allGood) return null;
+
           return (
-            <div className="fq-strategy-bar">
-              <div className="fq-strategy-title">Strategy</div>
-              {allGood ? (
-                <span className="fq-stat">
-                  <span className="fq-stat-dot fq-dot-green" />All reviewed, coverage complete
-                </span>
-              ) : (
-                <>
-                  {hasStale && (
-                    <span className="fq-stat">
-                      <span className="fq-stat-dot fq-dot-amber" />{staleCount} stale
-                    </span>
-                  )}
-                  {hasGaps && (
-                    <span className="fq-stat">
-                      <span className="fq-stat-dot fq-dot-red" />{gapCount} missing intent
-                    </span>
-                  )}
-                  {hasUntested && (
-                    <span className="fq-stat">
-                      <span className="fq-stat-dot fq-dot-amber" />{testedCount}/{totalAssumptions} assumptions tested
-                    </span>
-                  )}
-                  {!hasStale && !hasGaps && !hasUntested && allVisitedCount < totalFlowSteps && (
-                    <span className="fq-stat">
-                      <span className="fq-stat-dot fq-dot-muted" />{totalFlowSteps - allVisitedCount} steps unvisited
-                    </span>
-                  )}
-                </>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+              {hasStale && (
+                <span className="fq-stat"><span className="fq-stat-dot fq-dot-amber" />{staleCount} stale</span>
               )}
-              {/* Segment picker */}
-              {segments.length > 1 && (
-                <div className="fq-segment-picker" style={{ width: "100%", marginTop: 4 }}>
-                  <button
-                    type="button"
-                    className={`fq-segment-btn ${selectedSegment === null ? "fq-segment-btn-active" : ""}`}
-                    onClick={() => setSelectedSegment(null)}
-                  >All</button>
-                  {segments.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      className={`fq-segment-btn ${selectedSegment === s ? "fq-segment-btn-active" : ""}`}
-                      onClick={() => setSelectedSegment(selectedSegment === s ? null : s)}
-                    >{s}</button>
-                  ))}
-                </div>
+              {hasGaps && (
+                <span className="fq-stat"><span className="fq-stat-dot fq-dot-red" />{gapCount} no intent</span>
+              )}
+              {hasUntested && (
+                <span className="fq-stat"><span className="fq-stat-dot fq-dot-amber" />{testedCount}/{totalAssumptions} tested</span>
+              )}
+              {!hasStale && !hasGaps && !hasUntested && allVisitedCount < totalFlowSteps && (
+                <span className="fq-stat"><span className="fq-stat-dot fq-dot-muted" />{totalFlowSteps - allVisitedCount} unvisited</span>
               )}
             </div>
           );
@@ -831,6 +790,25 @@ function SidebarInner(props: {
 
           return (
           <>
+            {/* Segment picker — home view only */}
+            {segments.length > 1 && (
+              <div className="fq-segment-picker">
+                <button
+                  type="button"
+                  className={`fq-segment-btn ${selectedSegment === null ? "fq-segment-btn-active" : ""}`}
+                  onClick={() => setSelectedSegment(null)}
+                >All</button>
+                {segments.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className={`fq-segment-btn ${selectedSegment === s ? "fq-segment-btn-active" : ""}`}
+                    onClick={() => setSelectedSegment(selectedSegment === s ? null : s)}
+                  >{s}</button>
+                ))}
+              </div>
+            )}
+
             {/* PRIMARY CTA — what to do right now */}
             {suggestedFlow && (() => {
               const sugStaleCount = suggestedFlow.steps.filter((s) => stale.has(s)).length;
@@ -1001,18 +979,15 @@ function SidebarInner(props: {
               </details>
             )}
 
-            {/* EXPORT — only if no issues yet (otherwise shown in issues card above) */}
-            {issues.length === 0 && (
-              <div className="fq-row">
-                <button type="button" className="fq-btn" onClick={onExportMd}>Export MD</button>
-                <button type="button" className="fq-btn" onClick={onExportJson}>Export JSON</button>
-              </div>
-            )}
 
-            {/* TOOLS — viewport, facade */}
+            {/* TOOLS — export, viewport, facade */}
             <details className="fq-collapse">
-              <summary style={{ cursor: "pointer" }}>Tools</summary>
+              <summary style={{ cursor: "pointer" }}>Tools & export</summary>
               <div style={{ marginTop: 8 }}>
+                <div className="fq-row" style={{ marginBottom: 12 }}>
+                  <button type="button" className="fq-btn" onClick={onExportMd}>Export MD</button>
+                  <button type="button" className="fq-btn" onClick={onExportJson}>Export JSON</button>
+                </div>
                 <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Viewport</div>
                 <div className="fq-row" style={{ marginTop: 4 }}>
                   {(["375", "414", "768", "full"] as const).map((v) => (
@@ -1173,11 +1148,11 @@ function SidebarInner(props: {
                         );
                       })()}
 
-                      {/* Notes toggle */}
+                      {/* Notes — visible on hover, always if has content */}
                       <div style={{ marginTop: 2 }}>
                         <button
                           type="button"
-                          className="fq-notes-toggle"
+                          className={`fq-notes-toggle ${hasNotes ? "fq-notes-toggle-has-note" : ""}`}
                           onClick={() => setExpandedNotes(notesOpen ? null : sid)}
                         >
                           {hasNotes ? "Edit note" : notesOpen ? "Close" : "+ Note"}
