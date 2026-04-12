@@ -521,29 +521,38 @@ export const SIDEBAR_CSS = `
 }
 
 /* ── Observation insight cards ── */
-.fq-observation-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.fq-observation-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .fq-observation-card {
-  padding: 10px 12px; border-radius: var(--fq-radius-sm);
+  padding: 7px 10px; border-radius: var(--fq-radius-sm);
   background: var(--fq-panel); border: 1px solid var(--fq-border);
-  border-left: 3px solid var(--fq-here);
-  font-size: 12px; line-height: 1.5; color: var(--fq-text);
-  box-shadow: var(--fq-shadow-sm);
+  border-left: 2px solid var(--fq-muted);
+  font-size: 12px; line-height: 1.4; color: var(--fq-text);
   transition: all 0.15s;
 }
-.fq-observation-card:hover { border-color: var(--fq-here); background: rgba(129,140,248,0.04); }
+.fq-observation-card:hover { background: rgba(255,255,255,0.02); }
+/* Type-specific left borders */
+.fq-observation-card[data-type="risk"] { border-left-color: var(--fq-warn); }
+.fq-observation-card[data-type="gap"] { border-left-color: var(--fq-danger); }
+.fq-observation-card[data-type="opportunity"] { border-left-color: var(--fq-here); }
+.fq-observation-card[data-type="info"] { border-left-color: var(--fq-muted); }
 .fq-observation-card-type {
-  display: inline-flex; align-items: center;
-  padding: 1px 7px; border-radius: 999px;
-  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
-  background: rgba(129,140,248,0.12); color: var(--fq-here);
-  margin-bottom: 6px;
+  font-size: 10px; font-weight: 600; color: var(--fq-muted);
+  margin-bottom: 2px;
 }
-.fq-observation-card-text { color: var(--fq-text); }
+.fq-observation-card-text { color: var(--fq-text); font-size: 12px; }
 .fq-observation-card-assumption {
-  margin-top: 6px; padding-top: 6px;
+  margin-top: 4px; padding-top: 4px;
   border-top: 1px solid var(--fq-border-subtle);
   font-size: 11px; color: var(--fq-muted); font-style: italic;
 }
+/* "Show N more" link */
+.fq-show-all-insights {
+  appearance: none; background: none; border: none;
+  color: var(--fq-muted); font-size: 11px; font-weight: 500;
+  cursor: pointer; padding: 4px 0; text-align: center;
+  transition: color 0.15s;
+}
+.fq-show-all-insights:hover { color: var(--fq-here); }
 /* Compact observation teasers (inline in flow, above steps) */
 .fq-observation-teaser {
   padding: 8px 10px; border-radius: var(--fq-radius-sm);

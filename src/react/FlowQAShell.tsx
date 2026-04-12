@@ -25,6 +25,11 @@ function humanizeObsType(raw: string): string {
   return OBS_TYPE_LABELS[raw] ?? raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/* Humanize kebab-case segment names */
+function humanizeSegment(raw: string): string {
+  return raw.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 /* Truncate observation text for sidebar display */
 function truncateObs(text: string, max = 120): { short: string; truncated: boolean } {
   if (text.length <= max) return { short: text, truncated: false };
@@ -34,12 +39,25 @@ function truncateObs(text: string, max = 120): { short: string; truncated: boole
   return { short: text.slice(0, end) + "…", truncated: true };
 }
 
+/* Map observation types to severity categories for color coding */
+const OBS_SEVERITY: Record<string, string> = {
+  complexity_concentration: "risk",
+  infrastructure_gap: "gap",
+  code_strategy_gap: "gap",
+  implementation_inconsistency: "risk",
+  cross_page_disconnect: "risk",
+  captured_but_unused_data: "opportunity",
+  missed_connection: "opportunity",
+  hidden_feature: "info",
+};
+
 /* Expandable observation card */
 function ObservationCard({ o }: { o: { observation: string; type: string; suggested_assumption?: string } }) {
   const [expanded, setExpanded] = useState(false);
   const { short, truncated } = truncateObs(o.observation);
+  const severity = OBS_SEVERITY[o.type] ?? "info";
   return (
-    <div className="fq-observation-card" onClick={truncated ? () => setExpanded(!expanded) : undefined} style={truncated ? { cursor: "pointer" } : undefined}>
+    <div className="fq-observation-card" data-type={severity} onClick={truncated ? () => setExpanded(!expanded) : undefined} style={truncated ? { cursor: "pointer" } : undefined}>
       <div className="fq-observation-card-type">{humanizeObsType(o.type)}</div>
       <div className="fq-observation-card-text">{expanded ? o.observation : short}</div>
       {expanded && o.suggested_assumption && (
@@ -525,7 +543,7 @@ function SidebarInner(props: {
               const pct = seg ? Math.round(seg.coverage * 100) : null;
               return (
                 <option key={s} value={s}>
-                  {s}{pct !== null ? ` (${pct}%)` : ""}
+                  {humanizeSegment(s)}{pct !== null ? ` (${pct}%)` : ""}
                 </option>
               );
             })}
@@ -591,7 +609,7 @@ function SidebarInner(props: {
               <option value="">Select a flow…</option>
               {segFlows.map((f) => {
                 const sc = f.steps.filter((s) => stale.has(s)).length;
-                const tag = sc ? ` [${sc} stale]` : "";
+                const tag = sc ? ` · ${sc} stale` : "";
                 return (
                   <option key={f.id} value={f.id}>{f.title}{tag}</option>
                 );
@@ -728,7 +746,7 @@ function SidebarInner(props: {
                       const sc = f.steps.filter((s) => stale.has(s)).length;
                       const hot = hotFlows.some((h) => h.id === f.id);
                       const here = flowsHere.some((fh) => fh.id === f.id);
-                      const tag = sc ? ` [${sc} stale]` : hot ? " [changed]" : here ? " [here]" : "";
+                      const tag = sc ? ` · ${sc} stale` : hot ? " · changed" : here ? " ·" : "";
                       return (
                         <option key={f.id} value={f.id}>
                           {f.title}{tag}
@@ -1002,35 +1020,34 @@ function SidebarInner(props: {
           </div>
         )}
 
-        {/* ── INSIGHTS — unified observation deck, with scope filter ── */}
+        {/* ── INSIGHTS — page-relevant first, expandable to all ── */}
         {observations.length > 0 && (
           <details className="fq-collapse">
             <summary>
               <span className="fq-insights-label">Insights</span>
-              <span className="fq-insights-count">{obsScope === "page" ? pageObservations.length : observations.length}</span>
-              {obsScope === "page" && pageObservations.length < observations.length && (
-                <span className="fq-muted" style={{ marginLeft: 2 }}>of {observations.length}</span>
-              )}
+              <span className="fq-insights-count">{pageObservations.length > 0 ? pageObservations.length : observations.length}</span>
             </summary>
-            <div style={{ marginTop: 6 }}>
-              <div className="fq-obs-scope-picker">
-                <button type="button" className={`fq-obs-scope-btn ${obsScope === "page" ? "fq-obs-scope-btn-active" : ""}`} onClick={() => setObsScope("page")}>
-                  This page ({pageObservations.length})
+            <div className="fq-observation-list">
+              {(pageObservations.length > 0 ? pageObservations : observations).map((o, i) => (
+                <ObservationCard key={i} o={o} />
+              ))}
+              {pageObservations.length > 0 && otherObservations.length > 0 && !obsScope.startsWith("all") && (
+                <button
+                  type="button"
+                  className="fq-show-all-insights"
+                  onClick={() => setObsScope("all")}
+                >
+                  Show {otherObservations.length} more from other pages
                 </button>
-                <button type="button" className={`fq-obs-scope-btn ${obsScope === "all" ? "fq-obs-scope-btn-active" : ""}`} onClick={() => setObsScope("all")}>
-                  All ({observations.length})
-                </button>
-              </div>
-              <div className="fq-observation-list">
-                {(obsScope === "page" ? pageObservations : observations).map((o, i) => (
-                  <ObservationCard key={i} o={o} />
-                ))}
-                {obsScope === "page" && pageObservations.length === 0 && (
-                  <div className="fq-muted" style={{ fontSize: 12, textAlign: "center", padding: "8px 0" }}>
-                    No observations for this page
-                  </div>
-                )}
-              </div>
+              )}
+              {obsScope === "all" && otherObservations.map((o, i) => (
+                <ObservationCard key={`other-${i}`} o={o} />
+              ))}
+              {pageObservations.length === 0 && (
+                <div className="fq-muted" style={{ fontSize: 11, textAlign: "center", padding: "4px 0" }}>
+                  Showing all — none specific to this page
+                </div>
+              )}
             </div>
           </details>
         )}
