@@ -304,6 +304,25 @@ export const SIDEBAR_CSS = `
   background: rgba(63,185,80,0.08); border: 1px solid rgba(63,185,80,0.2);
   color: var(--fq-ok); text-align: center;
 }
+/* Priority flow list */
+.fq-priority-flows { display: flex; flex-direction: column; gap: 4px; }
+.fq-priority-flow {
+  padding: 8px 10px; border-radius: var(--fq-radius);
+  border: 1px solid var(--fq-border); background: var(--fq-panel);
+  cursor: pointer; transition: all 0.15s;
+}
+.fq-priority-flow:hover { border-color: var(--fq-muted); background: rgba(255,255,255,0.02); }
+.fq-priority-flow-title { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+.fq-priority-flow-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.fq-pf-chip {
+  display: inline-flex; align-items: center;
+  padding: 1px 7px; border-radius: 999px;
+  font-size: 10px; font-weight: 500; white-space: nowrap;
+}
+.fq-pf-chip-unchecked { background: rgba(139,148,158,0.12); color: var(--fq-muted); }
+.fq-pf-chip-changed { background: rgba(210,153,34,0.15); color: var(--fq-warn); }
+.fq-pf-chip-issues { background: rgba(248,81,73,0.12); color: var(--fq-danger); }
+.fq-pf-chip-here { background: rgba(88,166,255,0.12); color: var(--fq-accent); }
 /* Provocations */
 .fq-provocations { display: flex; flex-direction: column; gap: 6px; }
 @keyframes fq-slide-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }

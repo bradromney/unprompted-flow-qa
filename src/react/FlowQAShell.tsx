@@ -7,9 +7,7 @@ import { strategicGaps } from "../lib/git-map";
 import type { FacadeMode } from "../lib/storage";
 import type { StrategyState } from "../lib/strategy-inference";
 import { dwellLabel, sessionStats, type FlowSession } from "../lib/session-tracker";
-import { generateProvocations, type Provocation, type ProvocationContext } from "../lib/provocation-engine";
 import { SIDEBAR_CSS } from "./sidebar-styles";
-import { ProvocationStack } from "./Provocation";
 import { useFlowQAStore } from "./useFlowQAStore";
 
 const VIEWPORT_WIDTH: Record<string, string | undefined> = {
@@ -116,7 +114,6 @@ export function FlowQAShell(props: FlowQAShellProps) {
   const onApplyFacadeMode = useCallback((m: FacadeMode) => store.onApplyFacadeMode(m), [store]);
   const onApplyCopy = useCallback(() => store.onApplyCopy(), [store]);
   const onRecordCorrection = useCallback(() => store.onRecordCorrection(), [store]);
-  const onDismissProvocation = useCallback((id: string) => store.dismissProvocation(id), [store]);
 
   useLayoutEffect(() => {
     if (!enabled || !open) {
@@ -194,8 +191,6 @@ export function FlowQAShell(props: FlowQAShellProps) {
         sessionHistory={sessionHistory}
         onCopySession={onCopySession}
         copied={copied}
-        dismissedProvocationIds={store.dismissedProvocationIds}
-        onDismissProvocation={onDismissProvocation}
       />
     );
   });
@@ -338,8 +333,6 @@ function SidebarInner(props: {
   sessionHistory: FlowSession[];
   onCopySession: () => void;
   copied: boolean;
-  dismissedProvocationIds: Set<string>;
-  onDismissProvocation: (id: string) => void;
 }) {
   const {
     changed,
@@ -386,8 +379,6 @@ function SidebarInner(props: {
     sessionHistory,
     onCopySession,
     copied,
-    dismissedProvocationIds,
-    onDismissProvocation,
   } = props;
 
   const [expandedNotes, setExpandedNotes] = useState<string | null>(null);
@@ -453,20 +444,22 @@ function SidebarInner(props: {
   });
   const otherObservations = observations.filter((o) => !pageObservations.includes(o));
 
-  // Provocations — deterministic, replaces both alerts and assumptions section
-  const provocations: Provocation[] = (() => {
-    if (!strategyState || !bundle) return [];
-    const ctx: ProvocationContext = {
-      strategyState,
-      bundle,
-      issues,
-      observations,
-      stale,
-      pathname,
-      visited,
-      dismissedIds: dismissedProvocationIds,
-    };
-    return generateProvocations(ctx);
+  // Priority flows — ranked by urgency, shown as compact list with chips
+  const priorityFlows = (() => {
+    if (!bundle) return [];
+    return segFlows
+      .map((f) => {
+        const unchecked = f.steps.filter((sid) => !visited[sid]).length;
+        const changed = f.steps.filter((sid) => stale.has(sid)).length;
+        const isHere = f.steps.some((sid) => matchingStepIds.includes(sid));
+        const issueCount = issues.filter((i) => i.flowId === f.id).length;
+        // Urgency score: changed steps weigh most, then unchecked, then issues
+        const urgency = changed * 3 + unchecked * 2 + issueCount + (isHere ? 1 : 0);
+        return { flow: f, unchecked, changed, isHere, issueCount, urgency, total: f.steps.length };
+      })
+      .filter((pf) => pf.unchecked > 0 || pf.changed > 0)
+      .sort((a, b) => b.urgency - a.urgency)
+      .slice(0, 3);
   })();
 
   return (
@@ -529,17 +522,40 @@ function SidebarInner(props: {
           </div>
         )}
 
-        {/* ── PROVOCATIONS — opinionated co-founder cards ── */}
-        <ProvocationStack
-          provocations={provocations}
-          onDismiss={onDismissProvocation}
-          onCopyPrompt={(text) => {
-            navigator.clipboard.writeText(text);
-          }}
-          onNavigate={(flowId) => {
-            setActiveFlowId(flowId);
-          }}
-        />
+        {/* ── PRIORITY FLOWS — what needs attention ── */}
+        {priorityFlows.length > 0 && !displayFlow && (
+          <div className="fq-priority-flows">
+            {priorityFlows.map((pf) => (
+              <div
+                key={pf.flow.id}
+                className="fq-priority-flow"
+                onClick={() => setActiveFlowId(pf.flow.id)}
+              >
+                <div className="fq-priority-flow-title">{pf.flow.title}</div>
+                <div className="fq-priority-flow-chips">
+                  {pf.unchecked > 0 && (
+                    <span className="fq-pf-chip fq-pf-chip-unchecked">
+                      {pf.unchecked}/{pf.total} unchecked
+                    </span>
+                  )}
+                  {pf.changed > 0 && (
+                    <span className="fq-pf-chip fq-pf-chip-changed">
+                      {pf.changed} changed
+                    </span>
+                  )}
+                  {pf.issueCount > 0 && (
+                    <span className="fq-pf-chip fq-pf-chip-issues">
+                      {pf.issueCount} issue{pf.issueCount !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                  {pf.isHere && (
+                    <span className="fq-pf-chip fq-pf-chip-here">here</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* ── WHAT CHANGED ── */}
         {changeGroups.length > 0 && (
