@@ -305,21 +305,26 @@ export const SIDEBAR_CSS = `
   color: var(--fq-ok); text-align: center;
 }
 /* Priority flow list */
-.fq-priority-flows { display: flex; flex-direction: column; gap: 4px; }
+.fq-priority-flows { display: flex; flex-direction: column; gap: 6px; }
 .fq-priority-flow {
-  padding: 8px 10px; border-radius: var(--fq-radius);
+  padding: 10px 12px; border-radius: var(--fq-radius);
   border: 1px solid var(--fq-border); background: var(--fq-panel);
   cursor: pointer; transition: all 0.15s;
 }
-.fq-priority-flow:hover { border-color: var(--fq-muted); background: rgba(255,255,255,0.02); }
-.fq-priority-flow-title { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+.fq-priority-flow:hover { border-color: var(--fq-accent); }
+.fq-priority-flow-here { border-color: rgba(88,166,255,0.3); background: rgba(88,166,255,0.04); }
+.fq-priority-flow-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.fq-priority-flow-title { font-size: 13px; font-weight: 500; flex: 1; min-width: 0; }
+.fq-priority-flow-count { font-size: 11px; color: var(--fq-muted); flex-shrink: 0; margin-left: 8px; font-variant-numeric: tabular-nums; }
+.fq-priority-flow-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.06); overflow: hidden; margin-bottom: 6px; }
+.fq-priority-flow-fill { height: 100%; border-radius: 2px; background: var(--fq-ok); transition: width 0.3s ease; min-width: 1px; }
+.fq-priority-flow-fill-empty { background: var(--fq-warn); min-width: 0; width: 0 !important; }
 .fq-priority-flow-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .fq-pf-chip {
   display: inline-flex; align-items: center;
   padding: 1px 7px; border-radius: 999px;
   font-size: 10px; font-weight: 500; white-space: nowrap;
 }
-.fq-pf-chip-unchecked { background: rgba(139,148,158,0.12); color: var(--fq-muted); }
 .fq-pf-chip-changed { background: rgba(210,153,34,0.15); color: var(--fq-warn); }
 .fq-pf-chip-issues { background: rgba(248,81,73,0.12); color: var(--fq-danger); }
 .fq-pf-chip-here { background: rgba(88,166,255,0.12); color: var(--fq-accent); }

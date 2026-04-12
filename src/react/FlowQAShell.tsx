@@ -528,16 +528,20 @@ function SidebarInner(props: {
             {priorityFlows.map((pf) => (
               <div
                 key={pf.flow.id}
-                className="fq-priority-flow"
+                className={`fq-priority-flow ${pf.isHere ? "fq-priority-flow-here" : ""}`}
                 onClick={() => setActiveFlowId(pf.flow.id)}
               >
-                <div className="fq-priority-flow-title">{pf.flow.title}</div>
+                <div className="fq-priority-flow-top">
+                  <div className="fq-priority-flow-title">{pf.flow.title}</div>
+                  <span className="fq-priority-flow-count">{pf.total - pf.unchecked}/{pf.total}</span>
+                </div>
+                <div className="fq-priority-flow-bar">
+                  <div
+                    className={`fq-priority-flow-fill ${pf.unchecked === pf.total ? "fq-priority-flow-fill-empty" : ""}`}
+                    style={{ width: `${Math.round(((pf.total - pf.unchecked) / pf.total) * 100)}%` }}
+                  />
+                </div>
                 <div className="fq-priority-flow-chips">
-                  {pf.unchecked > 0 && (
-                    <span className="fq-pf-chip fq-pf-chip-unchecked">
-                      {pf.unchecked}/{pf.total} unchecked
-                    </span>
-                  )}
                   {pf.changed > 0 && (
                     <span className="fq-pf-chip fq-pf-chip-changed">
                       {pf.changed} changed
@@ -549,7 +553,7 @@ function SidebarInner(props: {
                     </span>
                   )}
                   {pf.isHere && (
-                    <span className="fq-pf-chip fq-pf-chip-here">here</span>
+                    <span className="fq-pf-chip fq-pf-chip-here">you're here</span>
                   )}
                 </div>
               </div>
