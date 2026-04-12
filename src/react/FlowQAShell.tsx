@@ -740,7 +740,7 @@ function SidebarInner(props: {
                   <div className="fq-progress-prompt-next">
                     <span className="fq-progress-prompt-label">Next</span>
                     <span className="fq-progress-prompt-text">{nextStep.instructions}</span>
-                    {nextStep.urlPattern && (
+                    {nextStep.urlPattern && nextStep.urlPattern !== "/" && (
                       <code className="fq-progress-prompt-url">{nextStep.urlPattern}</code>
                     )}
                   </div>
@@ -767,7 +767,7 @@ function SidebarInner(props: {
                 return (
                   <div
                     key={sid}
-                    className={`fq-check-step ${isActive ? "fq-check-step-active" : ""} ${isNext ? "fq-check-step-next" : ""}`}
+                    className={`fq-check-step ${isActive ? "fq-check-step-active" : ""}`}
                   >
                     <div
                       className={`fq-check-box ${isDone && !isStale ? "fq-check-box-done" : ""} ${isStale ? "fq-check-box-stale" : ""} ${isActive && !isDone && !isStale ? "fq-check-box-active" : ""}`}
@@ -788,7 +788,7 @@ function SidebarInner(props: {
                       <div className={`fq-check-instruction ${isDone && !isActive ? "fq-check-instruction-done" : ""}`}>
                         <span style={{ color: "var(--fq-muted)", marginRight: 4 }}>{idx + 1}.</span>
                         {st.instructions ?? sid}
-                        {isActive && <span style={{ color: "var(--fq-accent)", marginLeft: 6, fontSize: 11 }}>&#9679; You're here</span>}
+                        {isActive && <span style={{ color: "var(--fq-here)", marginLeft: 6, fontSize: 11 }}>&#9679; You're here</span>}
                         {isStale && !isActive && <span className="fq-stale-badge">&#8635; Changed</span>}
                         {(() => {
                           const eng = flowSession?.stepEngagement[sid];
@@ -856,17 +856,7 @@ function SidebarInner(props: {
               })()}
             </div>
 
-            {/* Contextual observations — after steps */}
-            {pageObservations.length > 0 && (
-              <details className="fq-collapse">
-                <summary>{pageObservations.length} observation{pageObservations.length !== 1 ? "s" : ""} on this page</summary>
-                <div className="fq-observation-list">
-                  {pageObservations.map((o, i) => (
-                    <ObservationCard key={i} o={o} />
-                  ))}
-                </div>
-              </details>
-            )}
+
           </>
           );
         })()}

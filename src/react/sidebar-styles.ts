@@ -140,17 +140,17 @@ export const SIDEBAR_CSS = `
 .fq-flow-item-active { border-color: var(--fq-accent); box-shadow: 0 0 0 1px var(--fq-accent); }
 
 /* ── Checklist steps ── */
-.fq-checklist { display: flex; flex-direction: column; gap: 2px; }
+.fq-checklist { display: flex; flex-direction: column; gap: 0; }
 .fq-check-step {
-  display: flex; gap: 8px; padding: 8px 10px; border-radius: var(--fq-radius-sm);
+  display: flex; gap: 8px; padding: 6px 8px; border-radius: var(--fq-radius-sm);
   cursor: pointer; transition: all 0.15s;
   border: 1px solid transparent;
 }
 .fq-check-step:hover { background: rgba(255,255,255,0.02); }
 .fq-check-step-active {
-  background: linear-gradient(135deg, rgba(255,107,94,0.08) 0%, rgba(255,107,94,0.04) 100%);
-  border-color: rgba(255,107,94,0.3);
-  box-shadow: 0 0 16px rgba(255,107,94,0.06), inset 0 1px 0 rgba(255,107,94,0.08);
+  background: linear-gradient(135deg, rgba(129,140,248,0.06) 0%, rgba(129,140,248,0.02) 100%);
+  border-color: rgba(129,140,248,0.25);
+  box-shadow: 0 0 12px rgba(129,140,248,0.05);
 }
 .fq-check-step-next {
   background: linear-gradient(135deg, rgba(255,107,94,0.06) 0%, transparent 100%);
@@ -621,10 +621,10 @@ export const SIDEBAR_CSS = `
 
 /* ── Other flows hint ── */
 .fq-other-flows-hint {
-  font-size: 11px; color: var(--fq-muted);
-  padding: 6px 10px; border-radius: var(--fq-radius-sm);
-  background: rgba(129,140,248,0.04); border: 1px solid rgba(129,140,248,0.1);
+  font-size: 10px; color: var(--fq-muted);
   text-align: center; font-weight: 500;
+  padding: 2px 0;
+  opacity: 0.7;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
