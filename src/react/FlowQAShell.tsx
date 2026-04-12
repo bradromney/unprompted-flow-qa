@@ -579,34 +579,26 @@ function SidebarInner(props: {
           </div>
         )}
 
-        {/* Flow selector — prominent, with other-flows count */}
-        <div className="fq-flow-selector">
-          <select
-            className="fq-select fq-flow-dropdown"
-            value={activeFlowId ?? ""}
-            onChange={(e) => setActiveFlowId(e.target.value || null)}
-          >
-            <option value="">
-              {suggestedFlow ? suggestedFlow.title : "Select a flow..."}
-            </option>
-            {segFlows.map((f) => {
-              const staleCount = f.steps.filter((s) => stale.has(s)).length;
-              const hot = hotFlows.some((h) => h.id === f.id);
-              const here = flowsHere.some((fh) => fh.id === f.id);
-              const tag = staleCount ? ` [${staleCount} stale]` : hot ? " [changed]" : here ? " [here]" : "";
-              return (
-                <option key={f.id} value={f.id}>
-                  {f.title}{tag}
-                </option>
-              );
-            })}
-          </select>
-          {displayFlow && flowsHere.length > 1 && (
-            <span className="fq-flow-selector-hint">
-              +{flowsHere.length - 1} on this page
-            </span>
-          )}
-        </div>
+
+        {/* Flow selector — standalone when no flow is active */}
+        {!displayFlow && (
+          <div className="fq-flow-selector">
+            <select
+              className="fq-select fq-flow-dropdown"
+              value=""
+              onChange={(e) => setActiveFlowId(e.target.value || null)}
+            >
+              <option value="">Select a flow…</option>
+              {segFlows.map((f) => {
+                const sc = f.steps.filter((s) => stale.has(s)).length;
+                const tag = sc ? ` [${sc} stale]` : "";
+                return (
+                  <option key={f.id} value={f.id}>{f.title}{tag}</option>
+                );
+              })}
+            </select>
+          </div>
+        )}
 
         {/* ── PRIORITY FLOWS ── */}
         {!displayFlow && priorityFlows.length > 0 && (
@@ -722,6 +714,34 @@ function SidebarInner(props: {
               </div>
             ) : (
               <div className="fq-progress-prompt">
+                {/* Flow selector — inside the card */}
+                <div className="fq-flow-selector">
+                  <select
+                    className="fq-select fq-flow-dropdown"
+                    value={activeFlowId ?? ""}
+                    onChange={(e) => setActiveFlowId(e.target.value || null)}
+                  >
+                    <option value="">
+                      {suggestedFlow ? suggestedFlow.title : "Select a flow..."}
+                    </option>
+                    {segFlows.map((f) => {
+                      const sc = f.steps.filter((s) => stale.has(s)).length;
+                      const hot = hotFlows.some((h) => h.id === f.id);
+                      const here = flowsHere.some((fh) => fh.id === f.id);
+                      const tag = sc ? ` [${sc} stale]` : hot ? " [changed]" : here ? " [here]" : "";
+                      return (
+                        <option key={f.id} value={f.id}>
+                          {f.title}{tag}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {flowsHere.length > 1 && (
+                    <span className="fq-flow-selector-hint">
+                      +{flowsHere.length - 1} on this page
+                    </span>
+                  )}
+                </div>
                 {displayFlow.strategic_intent && (
                   <div className="fq-progress-prompt-intent">{displayFlow.strategic_intent}</div>
                 )}
@@ -921,49 +941,32 @@ function SidebarInner(props: {
                   </div>
                 )}
                 <div className="fq-issue-inline-row">
-                  <div style={{ flex: 1 }}>
-                    <div className="fq-label">Type</div>
-                    <div className="fq-row">
-                      {(
-                        [
-                          ["bug", "Bug"],
-                          ["ux_friction", "UX"],
-                          ["strategic_gap", "Strategic"],
-                          ["assumption_evidence", "Evidence"],
-                        ] as const
-                      ).map(([val, label]) => (
-                        <button
-                          key={val}
-                          type="button"
-                          className="fq-chip-btn"
-                          data-active={issueDraft.type === val}
-                          onClick={() => setIssueDraft((d) => ({ ...d, type: val }))}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="fq-label">Severity</div>
-                    <select
-                      className="fq-select"
-                      style={{ fontSize: 11, padding: "3px 6px" }}
-                      value={issueDraft.severity}
-                      onChange={(e) =>
-                        setIssueDraft((d) => ({
-                          ...d,
-                          severity: e.target.value as Issue["severity"],
-                        }))
-                      }
-                    >
-                      <option value="">---</option>
-                      <option value="critical">critical</option>
-                      <option value="major">major</option>
-                      <option value="minor">minor</option>
-                      <option value="observation">note</option>
-                    </select>
-                  </div>
+                  <select
+                    className="fq-select fq-issue-select"
+                    value={issueDraft.type}
+                    onChange={(e) => setIssueDraft((d) => ({ ...d, type: e.target.value as IssueType }))}
+                  >
+                    <option value="bug">Bug</option>
+                    <option value="ux_friction">UX friction</option>
+                    <option value="strategic_gap">Strategic gap</option>
+                    <option value="assumption_evidence">Evidence</option>
+                  </select>
+                  <select
+                    className="fq-select fq-issue-select"
+                    value={issueDraft.severity}
+                    onChange={(e) =>
+                      setIssueDraft((d) => ({
+                        ...d,
+                        severity: e.target.value as Issue["severity"],
+                      }))
+                    }
+                  >
+                    <option value="">Severity…</option>
+                    <option value="critical">Critical</option>
+                    <option value="major">Major</option>
+                    <option value="minor">Minor</option>
+                    <option value="observation">Note</option>
+                  </select>
                 </div>
                 {issueDraft.type === "assumption_evidence" && (
                   <div>

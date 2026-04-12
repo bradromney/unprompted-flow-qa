@@ -339,9 +339,10 @@ export const SIDEBAR_CSS = `
 .fq-segment-dropdown:focus { border-color: var(--fq-accent); outline: none; }
 .fq-segment-dropdown:hover { border-color: var(--fq-muted); color: var(--fq-text); }
 
-/* ── Flow selector (body) ── */
+/* ── Flow selector (inside progress card) ── */
 .fq-flow-selector {
   display: flex; align-items: center; gap: 8px;
+  margin-bottom: 8px;
 }
 .fq-flow-selector-hint {
   font-size: 10px; color: var(--fq-muted); white-space: nowrap;
@@ -602,8 +603,20 @@ export const SIDEBAR_CSS = `
   background: rgba(240,173,78,0.06); border-radius: var(--fq-radius-sm);
 }
 .fq-issue-inline-row {
-  display: flex; gap: 8px; align-items: flex-start;
+  display: flex; gap: 6px; align-items: center;
 }
+.fq-issue-select {
+  width: auto; flex: 1; min-width: 0;
+  font-size: 11px; padding: 4px 22px 4px 8px;
+  background: var(--fq-bg); border: 1px solid var(--fq-border);
+  color: var(--fq-text); border-radius: var(--fq-radius-sm);
+  cursor: pointer; appearance: none; font-weight: 500;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238A87A0'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  transition: border-color 0.15s;
+}
+.fq-issue-select:focus { border-color: var(--fq-accent); outline: none; }
 .fq-issue-inline-actions {
   display: flex; gap: 6px;
 }
