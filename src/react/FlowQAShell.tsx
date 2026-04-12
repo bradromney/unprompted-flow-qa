@@ -522,8 +522,8 @@ function SidebarInner(props: {
           </div>
         )}
 
-        {/* ── PRIORITY FLOWS — what needs attention ── */}
-        {priorityFlows.length > 0 && (
+        {/* ── PRIORITY FLOWS ── */}
+        {!displayFlow && priorityFlows.length > 0 && (
           <div className="fq-priority-flows">
             {priorityFlows.map((pf) => (
               <div
@@ -558,6 +558,12 @@ function SidebarInner(props: {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+        {/* Other flows on this page — compact hint when a flow is active */}
+        {displayFlow && flowsHere.length > 1 && (
+          <div className="fq-other-flows-hint">
+            {flowsHere.length - 1} other flow{flowsHere.length - 1 !== 1 ? "s" : ""} also touch{flowsHere.length - 1 === 1 ? "es" : ""} this page
           </div>
         )}
 
@@ -627,10 +633,9 @@ function SidebarInner(props: {
                   <div className="fq-muted" style={{ marginBottom: 4 }}>{si}</div>
                 );
               })()}
-              {(displayFlow.segment || displayFlow.eval_dimension) && (
+              {displayFlow.eval_dimension && (
                 <div className="fq-row" style={{ marginBottom: 4 }}>
-                  {displayFlow.segment && <span className="fq-chip">{displayFlow.segment}</span>}
-                  {displayFlow.eval_dimension && <span className="fq-chip">{displayFlow.eval_dimension}</span>}
+                  <span className="fq-chip">{displayFlow.eval_dimension}</span>
                 </div>
               )}
             </div>
@@ -655,20 +660,6 @@ function SidebarInner(props: {
               <div className="fq-session-complete">
                 Flow complete
               </div>
-            )}
-
-            {/* Contextual observations — folded into flow, before steps */}
-            {pageObservations.length > 0 && (
-              <details className="fq-collapse" style={{ marginTop: 4 }}>
-                <summary>{pageObservations.length} observation{pageObservations.length !== 1 ? "s" : ""} on this page</summary>
-                <div className="fq-observation-list">
-                  {pageObservations.slice(0, 3).map((o, i) => (
-                    <div key={i} className="fq-observation-teaser">
-                      {o.observation}
-                    </div>
-                  ))}
-                </div>
-              </details>
             )}
 
             {/* Next step prompt */}
@@ -789,6 +780,26 @@ function SidebarInner(props: {
               });
               })()}
             </div>
+
+            {/* Contextual observations — after steps */}
+            {pageObservations.length > 0 && (
+              <details className="fq-collapse">
+                <summary>{pageObservations.length} observation{pageObservations.length !== 1 ? "s" : ""} on this page</summary>
+                <div className="fq-observation-list">
+                  {pageObservations.map((o, i) => (
+                    <div key={i} className="fq-observation-card">
+                      <div className="fq-observation-card-type">{o.type}</div>
+                      <div className="fq-observation-card-text">{o.observation}</div>
+                      {o.suggested_assumption && (
+                        <div className="fq-observation-card-assumption">
+                          Assumption: {o.suggested_assumption}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
           </>
           );
         })()}

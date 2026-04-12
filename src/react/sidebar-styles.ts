@@ -484,10 +484,10 @@ export const SIDEBAR_CSS = `
 /* ── Log issue action section ── */
 .fq-collapse-action > summary {
   color: var(--fq-accent);
-  padding: 8px 12px;
   background: var(--fq-accent-soft);
   border: 1px solid rgba(255,107,94,0.15);
   border-radius: var(--fq-radius-sm);
+  padding: 8px 10px;
   transition: all 0.15s;
 }
 .fq-collapse-action > summary::before { color: var(--fq-accent); }
@@ -498,6 +498,14 @@ export const SIDEBAR_CSS = `
 .fq-collapse-action[open] > summary {
   border-radius: var(--fq-radius-sm) var(--fq-radius-sm) 0 0;
   border-bottom-color: transparent;
+}
+
+/* ── Other flows hint ── */
+.fq-other-flows-hint {
+  font-size: 11px; color: var(--fq-muted);
+  padding: 6px 10px; border-radius: var(--fq-radius-sm);
+  background: rgba(129,140,248,0.04); border: 1px solid rgba(129,140,248,0.1);
+  text-align: center; font-weight: 500;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
