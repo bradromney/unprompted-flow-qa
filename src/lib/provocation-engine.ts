@@ -78,18 +78,18 @@ function* contradictedAssumptions(ctx: ProvocationContext): Generator<Provocatio
 
     yield {
       id,
-      thesis: `"${trunc(a.assumption, 60)}" — ${a.contradicts} contradicting, zero supporting.`,
-      whyNow: flowNames.length ? `Affects ${flowNames.join(" and ")}` : `${a.contradicts} contradictions logged`,
+      thesis: `"${trunc(a.assumption, 60)}" — the evidence says otherwise.`,
+      whyNow: `${a.contradicts} thing${a.contradicts !== 1 ? "s" : ""} contradict this, nothing supports it${flowNames.length ? ` (in ${flowNames.join(", ")})` : ""}`,
       stratum: "strategy",
       severity: "critical",
       options: [
         {
-          label: "Rethink",
+          label: "Rethink this",
           action: "copy_prompt",
           promptOverride: `## Strategic Challenge\n\nThe assumption "${a.assumption}" has ${a.contradicts} pieces of contradicting evidence and no supporting evidence.\n\nFlows affected: ${a.flowIds.join(", ")}\nSteps testing this: ${a.stepIds.join(", ")}\n\nResearch whether this assumption still holds. Check competitor approaches. Recommend whether to pivot these flows or double down with changes.\n`,
         },
         {
-          label: "Fix the flow",
+          label: "Copy prompt for agent",
           action: "copy_prompt",
         },
       ],
@@ -110,18 +110,18 @@ function* mixedAssumptions(ctx: ProvocationContext): Generator<Provocation> {
 
     yield {
       id,
-      thesis: `"${trunc(a.assumption, 60)}" — ${a.supports}\u2191 ${a.contradicts}\u2193 split evidence.`,
-      whyNow: `Needs a call, not more data`,
+      thesis: `"${trunc(a.assumption, 60)}" — some evidence for, some against.`,
+      whyNow: `${a.supports} supporting, ${a.contradicts} contradicting — time to make a call`,
       stratum: "strategy",
       severity: "important",
       options: [
         {
-          label: "Investigate",
+          label: "Dig into this",
           action: "copy_prompt",
           promptOverride: `## Assumption with Mixed Evidence\n\n"${a.assumption}"\n- ${a.supports} supporting evidence\n- ${a.contradicts} contradicting evidence\n- ${a.ambiguous} ambiguous\n\nAnalyze the evidence for and against this assumption. What would definitively prove or disprove it? Suggest a specific test.\n`,
         },
         {
-          label: "Keep building",
+          label: "It\u2019s fine, keep building",
           action: "dismiss",
         },
       ],
@@ -141,18 +141,18 @@ function* staleFlows(ctx: ProvocationContext): Generator<Provocation> {
 
     yield {
       id,
-      thesis: `"${trunc(f.title, 40)}" — ${staleCount}/${f.steps.length} steps changed since you last looked.`,
-      whyNow: `Code moved, review didn\u2019t`,
+      thesis: `"${trunc(f.title, 40)}" changed since you last checked it.`,
+      whyNow: `${staleCount} of ${f.steps.length} checkpoints were affected by recent code changes`,
       stratum: "architecture",
       severity: "important",
       options: [
         {
-          label: "Re-review",
+          label: "Walk through it again",
           action: "navigate",
           targetId: f.id,
         },
         {
-          label: "Send to agent",
+          label: "Copy prompt for agent",
           action: "copy_prompt",
           promptOverride: `## Stale Flow Review\n\nThe flow "${f.title}" has ${staleCount}/${f.steps.length} steps that changed since last review.\n\nFlow ID: ${f.id}\nStrategic intent: ${f.strategic_intent ?? "not set"}\n\nReview each stale step. Check if the changes broke the expected behavior or shifted the user experience. Report findings.\n`,
         },
@@ -179,13 +179,13 @@ function* coverageGaps(ctx: ProvocationContext): Generator<Provocation> {
 
     yield {
       id,
-      thesis: `"${seg.segment}" at ${Math.round(seg.coverage * 100)}% coverage — blind spot.`,
-      whyNow: `${seg.visitedSteps}/${seg.totalSteps} steps across ${seg.flowCount} flow${seg.flowCount !== 1 ? "s" : ""}`,
+      thesis: `You\u2019ve barely looked at the ${seg.segment} experience.`,
+      whyNow: `${seg.totalSteps - seg.visitedSteps} of ${seg.totalSteps} checkpoints still unchecked`,
       stratum: "strategy",
       severity: "notable",
       options: [
         {
-          label: "Start testing",
+          label: "Walk through it",
           action: "navigate",
           targetId: targetFlowId,
         },
@@ -232,12 +232,12 @@ function* orphanedObservations(ctx: ProvocationContext): Generator<Provocation> 
     yield {
       id,
       thesis: trunc(obs.observation, 80),
-      whyNow: `Spotted on ${pageName}, never investigated`,
+      whyNow: `You\u2019re on ${pageName} now \u2014 good time to check`,
       stratum: "experience",
       severity: "notable",
       options: [
         {
-          label: "Investigate",
+          label: "Dig into this",
           action: "copy_prompt",
           promptOverride: `## Uninvestigated Observation\n\n"${obs.observation}"\n\nType: ${obs.type}\n${obs.suggested_assumption ? `Suggested assumption: ${obs.suggested_assumption}\n` : ""}\nInvestigate whether this observation represents a real issue. Check the relevant code and user flows. Report findings with severity assessment.\n`,
         },
