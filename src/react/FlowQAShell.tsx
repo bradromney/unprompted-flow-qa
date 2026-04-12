@@ -233,8 +233,8 @@ export function FlowQAShell(props: FlowQAShellProps) {
               width: 380,
               maxWidth: "42vw",
               minWidth: 300,
-              borderLeft: "1px solid #2d333b",
-              background: "#0f1419",
+              borderLeft: "1px solid #2E2D3A",
+              background: "#111015",
               overflow: "hidden",
             }}
           />
