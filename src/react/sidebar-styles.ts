@@ -305,26 +305,89 @@ export const SIDEBAR_CSS = `
   color: var(--fq-ok); text-align: center;
 }
 /* Provocations */
-.fq-provocations { display: flex; flex-direction: column; gap: 8px; }
+.fq-provocations { display: flex; flex-direction: column; gap: 6px; }
+@keyframes fq-slide-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
 .fq-provocation {
-  padding: 10px 12px; border-radius: var(--fq-radius);
+  position: relative;
+  padding: 10px 28px 10px 12px; border-radius: var(--fq-radius);
   border: 1px solid var(--fq-border); background: var(--fq-panel);
+  animation: fq-slide-in 0.2s ease both;
   transition: opacity 0.3s ease, transform 0.3s ease;
 }
-.fq-provocation-critical { border-left: 3px solid var(--fq-danger); background: rgba(248,81,73,0.04); }
-.fq-provocation-important { border-left: 3px solid var(--fq-warn); background: rgba(210,153,34,0.04); }
-.fq-provocation-notable { border-left: 3px solid var(--fq-accent); background: rgba(88,166,255,0.04); }
+/* Stagger entrance for multiple cards */
+.fq-provocation:nth-child(2) { animation-delay: 0.06s; }
+.fq-provocation:nth-child(3) { animation-delay: 0.12s; }
+/* ── Severity tiers ── */
+.fq-provocation-critical {
+  border-left: 3px solid var(--fq-danger);
+  background: rgba(248,81,73,0.06);
+}
+.fq-provocation-important {
+  border-left: 3px solid var(--fq-warn);
+  background: rgba(210,153,34,0.04);
+}
+.fq-provocation-notable {
+  border-left: 2px solid var(--fq-border);
+  background: transparent;
+  padding: 8px 28px 8px 10px;
+}
 .fq-provocation-fade { opacity: 0; transform: translateX(20px); pointer-events: none; }
-.fq-provocation-thesis { font-size: 13px; line-height: 1.4; font-weight: 500; margin-bottom: 4px; }
+/* ── × dismiss button ── */
+.fq-provocation-close {
+  position: absolute; top: 6px; right: 6px;
+  appearance: none; background: none; border: none;
+  color: var(--fq-muted); font-size: 14px; line-height: 1;
+  cursor: pointer; padding: 2px 4px; border-radius: 3px;
+  opacity: 0; transition: opacity 0.15s, color 0.15s;
+}
+.fq-provocation:hover .fq-provocation-close { opacity: 1; }
+.fq-provocation-close:hover { color: var(--fq-text); background: rgba(255,255,255,0.06); }
+/* ── Glyph ── */
+.fq-provocation-glyph { margin-right: 6px; font-size: 12px; }
+.fq-provocation-critical .fq-provocation-glyph { color: var(--fq-danger); }
+.fq-provocation-important .fq-provocation-glyph { color: var(--fq-warn); }
+.fq-provocation-notable .fq-provocation-glyph { color: var(--fq-muted); }
+/* ── Thesis + why ── */
+.fq-provocation-thesis { font-size: 13px; line-height: 1.35; font-weight: 500; margin-bottom: 3px; }
+.fq-provocation-notable .fq-provocation-thesis { font-weight: 400; font-size: 12px; }
 .fq-provocation-why { font-size: 11px; color: var(--fq-muted); margin-bottom: 8px; }
+.fq-provocation-notable .fq-provocation-why { margin-bottom: 6px; }
+/* ── Action buttons ── */
 .fq-provocation-options { display: flex; flex-wrap: wrap; gap: 6px; }
 .fq-provocation-btn {
   appearance: none; border: 1px solid var(--fq-border); background: #21262d;
   color: var(--fq-text); border-radius: 6px; padding: 4px 10px;
   font-size: 11px; cursor: pointer; transition: all 0.15s;
 }
-.fq-provocation-btn:hover { border-color: var(--fq-accent); color: var(--fq-accent); }
-.fq-provocation-btn-muted { color: var(--fq-muted); }
-.fq-provocation-btn-muted:hover { border-color: var(--fq-muted); color: var(--fq-text); }
+.fq-provocation-btn-primary {
+  background: rgba(31,111,235,0.15); border-color: rgba(31,111,235,0.4);
+  color: var(--fq-accent); font-weight: 500;
+}
+.fq-provocation-btn-primary:hover { background: rgba(31,111,235,0.25); border-color: var(--fq-accent); }
+.fq-provocation-critical .fq-provocation-btn-primary {
+  background: rgba(248,81,73,0.12); border-color: rgba(248,81,73,0.35); color: var(--fq-danger);
+}
+.fq-provocation-critical .fq-provocation-btn-primary:hover { background: rgba(248,81,73,0.2); border-color: var(--fq-danger); }
+.fq-provocation-btn-secondary { color: var(--fq-muted); }
+.fq-provocation-btn-secondary:hover { border-color: var(--fq-muted); color: var(--fq-text); }
 .fq-provocation-btn-copied { background: var(--fq-ok); border-color: var(--fq-ok); color: #fff; }
+/* ── "N more" expand ── */
+.fq-provocation-more {
+  appearance: none; background: none; border: 1px dashed var(--fq-border);
+  color: var(--fq-muted); border-radius: 6px; padding: 5px 10px;
+  font-size: 11px; cursor: pointer; text-align: center;
+  transition: all 0.15s;
+}
+.fq-provocation-more:hover { border-color: var(--fq-muted); color: var(--fq-text); }
+/* ── Notable teaser (single-line) ── */
+.fq-provocation-teaser {
+  display: flex; align-items: center; gap: 4px;
+  padding: 6px 10px; border-radius: 6px;
+  font-size: 12px; color: var(--fq-muted);
+  cursor: pointer; transition: all 0.15s;
+  animation: fq-slide-in 0.2s ease both;
+}
+.fq-provocation-teaser:hover { background: rgba(255,255,255,0.03); color: var(--fq-text); }
+.fq-provocation-teaser-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fq-provocation-teaser-arrow { flex-shrink: 0; font-size: 14px; opacity: 0.4; }
 `;

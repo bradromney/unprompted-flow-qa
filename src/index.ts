@@ -54,4 +54,4 @@ export {
   type ProvocationContext,
   type Stratum,
 } from "./lib/provocation-engine";
-export { ProvocationCard } from "./react/Provocation";
+export { ProvocationCard, ProvocationStack } from "./react/Provocation";

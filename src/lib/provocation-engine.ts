@@ -77,23 +77,19 @@ function* contradictedAssumptions(ctx: ProvocationContext): Generator<Provocatio
 
     yield {
       id,
-      thesis: `"${trunc(a.assumption, 70)}" has ${a.contradicts} contradicting evidence and zero supporting. You might be building on a false premise.`,
-      whyNow: `${a.contradicts} contradicting observation${a.contradicts !== 1 ? "s" : ""} logged${flowNames.length ? ` in ${flowNames.join(", ")}` : ""}.`,
+      thesis: `"${trunc(a.assumption, 60)}" — ${a.contradicts} contradicting, zero supporting.`,
+      whyNow: flowNames.length ? `Affects ${flowNames.join(" and ")}` : `${a.contradicts} contradictions logged`,
       stratum: "strategy",
       severity: "critical",
       options: [
         {
-          label: "Rethink this assumption",
+          label: "Rethink",
           action: "copy_prompt",
           promptOverride: `## Strategic Challenge\n\nThe assumption "${a.assumption}" has ${a.contradicts} pieces of contradicting evidence and no supporting evidence.\n\nFlows affected: ${a.flowIds.join(", ")}\nSteps testing this: ${a.stepIds.join(", ")}\n\nResearch whether this assumption still holds. Check competitor approaches. Recommend whether to pivot these flows or double down with changes.\n`,
         },
         {
           label: "Fix the flow",
           action: "copy_prompt",
-        },
-        {
-          label: "Dismiss \u2014 I know something you don\u2019t",
-          action: "dismiss",
         },
       ],
       promptFragment: `**Assumption at risk:** "${a.assumption}" \u2014 ${a.contradicts} contradicting, 0 supporting.\nFlows: ${a.flowIds.join(", ")}. Steps: ${a.stepIds.join(", ")}.\n`,
@@ -113,22 +109,18 @@ function* mixedAssumptions(ctx: ProvocationContext): Generator<Provocation> {
 
     yield {
       id,
-      thesis: `"${trunc(a.assumption, 70)}" has conflicting evidence: ${a.supports} supporting, ${a.contradicts} contradicting. Which signal do you trust?`,
-      whyNow: `Evidence is split \u2014 this assumption needs a decision, not more data.`,
+      thesis: `"${trunc(a.assumption, 60)}" — ${a.supports}\u2191 ${a.contradicts}\u2193 split evidence.`,
+      whyNow: `Needs a call, not more data`,
       stratum: "strategy",
       severity: "important",
       options: [
         {
-          label: "Investigate deeper",
+          label: "Investigate",
           action: "copy_prompt",
           promptOverride: `## Assumption with Mixed Evidence\n\n"${a.assumption}"\n- ${a.supports} supporting evidence\n- ${a.contradicts} contradicting evidence\n- ${a.ambiguous} ambiguous\n\nAnalyze the evidence for and against this assumption. What would definitively prove or disprove it? Suggest a specific test.\n`,
         },
         {
-          label: "Lean in \u2014 keep building",
-          action: "dismiss",
-        },
-        {
-          label: "Dismiss",
+          label: "Keep building",
           action: "dismiss",
         },
       ],
@@ -148,24 +140,20 @@ function* staleFlows(ctx: ProvocationContext): Generator<Provocation> {
 
     yield {
       id,
-      thesis: `"${f.title}" has ${staleCount}/${f.steps.length} stale steps. Code moved but your review didn\u2019t follow.`,
-      whyNow: `Recent code changes touched files mapped to this flow.`,
+      thesis: `"${trunc(f.title, 40)}" — ${staleCount}/${f.steps.length} steps changed since you last looked.`,
+      whyNow: `Code moved, review didn\u2019t`,
       stratum: "architecture",
       severity: "important",
       options: [
         {
-          label: "Re-review now",
+          label: "Re-review",
           action: "navigate",
           targetId: f.id,
         },
         {
-          label: "Queue for agent",
+          label: "Send to agent",
           action: "copy_prompt",
           promptOverride: `## Stale Flow Review\n\nThe flow "${f.title}" has ${staleCount}/${f.steps.length} steps that changed since last review.\n\nFlow ID: ${f.id}\nStrategic intent: ${f.strategic_intent ?? "not set"}\n\nReview each stale step. Check if the changes broke the expected behavior or shifted the user experience. Report findings.\n`,
-        },
-        {
-          label: "Dismiss",
-          action: "dismiss",
         },
       ],
       promptFragment: `**Stale flow:** "${f.title}" \u2014 ${staleCount}/${f.steps.length} steps changed since last review.\n`,
@@ -183,18 +171,14 @@ function* coverageGaps(ctx: ProvocationContext): Generator<Provocation> {
 
     yield {
       id,
-      thesis: `The "${seg.segment}" segment has ${Math.round(seg.coverage * 100)}% coverage. That\u2019s a blind spot in your strategy.`,
-      whyNow: `${seg.visitedSteps}/${seg.totalSteps} steps visited across ${seg.flowCount} flow${seg.flowCount !== 1 ? "s" : ""}.`,
+      thesis: `"${seg.segment}" at ${Math.round(seg.coverage * 100)}% coverage — blind spot.`,
+      whyNow: `${seg.visitedSteps}/${seg.totalSteps} steps across ${seg.flowCount} flow${seg.flowCount !== 1 ? "s" : ""}`,
       stratum: "strategy",
       severity: "notable",
       options: [
         {
           label: "Start testing",
           action: "navigate",
-        },
-        {
-          label: "Dismiss",
-          action: "dismiss",
         },
       ],
       promptFragment: `**Coverage gap:** "${seg.segment}" segment at ${Math.round(seg.coverage * 100)}% (${seg.visitedSteps}/${seg.totalSteps} steps).\n`,
@@ -229,10 +213,17 @@ function* orphanedObservations(ctx: ProvocationContext): Generator<Provocation> 
     const id = stableId("orphan", obs.observation.slice(0, 40));
     if (ctx.dismissedIds.has(id)) continue;
 
+    // Build a page-specific whyNow
+    const pageName = path.startsWith("/pipeline") ? "Pipeline"
+      : path.startsWith("/contacts") ? "Contacts"
+      : path.startsWith("/strategy") ? "Strategy"
+      : path.startsWith("/profile") ? "Profile"
+      : "this page";
+
     yield {
       id,
-      thesis: `${trunc(obs.observation, 90)} \u2014 noticed but never investigated.`,
-      whyNow: `You\u2019re on a page where this is relevant.`,
+      thesis: trunc(obs.observation, 80),
+      whyNow: `Spotted on ${pageName}, never investigated`,
       stratum: "experience",
       severity: "notable",
       options: [
@@ -240,10 +231,6 @@ function* orphanedObservations(ctx: ProvocationContext): Generator<Provocation> 
           label: "Investigate",
           action: "copy_prompt",
           promptOverride: `## Uninvestigated Observation\n\n"${obs.observation}"\n\nType: ${obs.type}\n${obs.suggested_assumption ? `Suggested assumption: ${obs.suggested_assumption}\n` : ""}\nInvestigate whether this observation represents a real issue. Check the relevant code and user flows. Report findings with severity assessment.\n`,
-        },
-        {
-          label: "Note it",
-          action: "dismiss",
         },
       ],
       promptFragment: `**Unexamined observation:** "${trunc(obs.observation, 100)}" (${obs.type}).\n`,

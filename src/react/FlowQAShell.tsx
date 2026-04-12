@@ -9,7 +9,7 @@ import type { StrategyState } from "../lib/strategy-inference";
 import { dwellLabel, sessionStats, type FlowSession } from "../lib/session-tracker";
 import { generateProvocations, type Provocation, type ProvocationContext } from "../lib/provocation-engine";
 import { SIDEBAR_CSS } from "./sidebar-styles";
-import { ProvocationCard } from "./Provocation";
+import { ProvocationStack } from "./Provocation";
 import { useFlowQAStore } from "./useFlowQAStore";
 
 const VIEWPORT_WIDTH: Record<string, string | undefined> = {
@@ -528,23 +528,16 @@ function SidebarInner(props: {
         )}
 
         {/* ── PROVOCATIONS — opinionated co-founder cards ── */}
-        {provocations.length > 0 && (
-          <div className="fq-provocations">
-            {provocations.map((p) => (
-              <ProvocationCard
-                key={p.id}
-                provocation={p}
-                onDismiss={onDismissProvocation}
-                onCopyPrompt={(text) => {
-                  navigator.clipboard.writeText(text);
-                }}
-                onNavigate={(flowId) => {
-                  setActiveFlowId(flowId);
-                }}
-              />
-            ))}
-          </div>
-        )}
+        <ProvocationStack
+          provocations={provocations}
+          onDismiss={onDismissProvocation}
+          onCopyPrompt={(text) => {
+            navigator.clipboard.writeText(text);
+          }}
+          onNavigate={(flowId) => {
+            setActiveFlowId(flowId);
+          }}
+        />
 
         {/* ── WHAT CHANGED ── */}
         {changeGroups.length > 0 && (
