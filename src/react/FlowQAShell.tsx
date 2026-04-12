@@ -463,6 +463,7 @@ function SidebarInner(props: {
       observations,
       stale,
       pathname,
+      visited,
       dismissedIds: dismissedProvocationIds,
     };
     return generateProvocations(ctx);

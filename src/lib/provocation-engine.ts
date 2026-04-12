@@ -39,6 +39,7 @@ export interface ProvocationContext {
   observations: StrategicObservation[];
   stale: Set<string>;
   pathname: string;
+  visited: Record<string, number>;
   /** IDs previously dismissed — skip these unless inputs changed */
   dismissedIds: Set<string>;
 }
@@ -169,6 +170,13 @@ function* coverageGaps(ctx: ProvocationContext): Generator<Provocation> {
     const id = stableId("coverage", seg.segment);
     if (ctx.dismissedIds.has(id)) continue;
 
+    // Find the first flow in this segment that has unvisited steps
+    const segFlows = ctx.bundle.flows.filter((f) => f.segment === seg.segment);
+    const targetFlow = segFlows.find((f) =>
+      f.steps.some((sid) => !ctx.visited[sid])
+    ) ?? segFlows[0];
+    const targetFlowId = targetFlow?.id;
+
     yield {
       id,
       thesis: `"${seg.segment}" at ${Math.round(seg.coverage * 100)}% coverage — blind spot.`,
@@ -179,10 +187,11 @@ function* coverageGaps(ctx: ProvocationContext): Generator<Provocation> {
         {
           label: "Start testing",
           action: "navigate",
+          targetId: targetFlowId,
         },
       ],
       promptFragment: `**Coverage gap:** "${seg.segment}" segment at ${Math.round(seg.coverage * 100)}% (${seg.visitedSteps}/${seg.totalSteps} steps).\n`,
-      relatedIds: [],
+      relatedIds: targetFlowId ? [targetFlowId] : [],
     };
   }
 }
