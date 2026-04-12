@@ -214,7 +214,7 @@ export function FlowQAShell(props: FlowQAShellProps) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: "100vh" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
       <div style={{ display: "flex", flex: 1, minHeight: 0, minWidth: 0 }}>
         <div
           ref={appViewportRef}
@@ -240,7 +240,6 @@ export function FlowQAShell(props: FlowQAShellProps) {
               minWidth: 300,
               borderLeft: "1px solid #2d333b",
               background: "#0f1419",
-              height: "100%",
               overflow: "hidden",
             }}
           />
