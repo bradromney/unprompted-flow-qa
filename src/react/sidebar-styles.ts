@@ -671,25 +671,40 @@ export const SIDEBAR_CSS = `
   background: rgba(129,140,248,0.1);
 }
 
-/* ── Gear button + tools popover ── */
+/* ── Gear button ── */
 .fq-gear-btn {
   appearance: none; background: none; border: 1px solid transparent;
   color: var(--fq-muted); cursor: pointer; padding: 4px;
   border-radius: var(--fq-radius-sm); transition: all 0.15s;
   display: flex; align-items: center; justify-content: center;
+  font-size: 14px; line-height: 1;
 }
 .fq-gear-btn:hover { color: var(--fq-text); border-color: var(--fq-border); background: var(--fq-surface); }
-.fq-tools-popover {
-  position: absolute; top: calc(100% + 6px); right: 0;
-  width: 220px; background: var(--fq-panel);
-  border: 1px solid var(--fq-border); border-radius: var(--fq-radius);
-  box-shadow: var(--fq-shadow);
-  padding: 8px;
-  z-index: 100;
-  display: flex; flex-direction: column; gap: 8px;
+
+/* ── Tools overlay panel ── */
+.fq-tools-backdrop {
+  position: absolute; inset: 0; z-index: 90;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(2px);
 }
-.fq-tools-popover-section { display: flex; flex-direction: column; gap: 4px; }
-.fq-tools-popover-label {
+.fq-tools-panel {
+  position: absolute; top: 50%; left: 50%; z-index: 100;
+  transform: translate(-50%, -50%);
+  width: calc(100% - 32px); max-width: 280px;
+  background: var(--fq-panel);
+  border: 1px solid var(--fq-border); border-radius: var(--fq-radius);
+  box-shadow: var(--fq-shadow), 0 8px 32px rgba(0,0,0,0.5);
+  padding: 16px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.fq-tools-panel-header {
+  display: flex; justify-content: space-between; align-items: center;
+}
+.fq-tools-panel-title {
+  font-size: 13px; font-weight: 700; color: var(--fq-text);
+}
+.fq-tools-panel-section { display: flex; flex-direction: column; gap: 6px; }
+.fq-tools-panel-label {
   font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em;
   color: var(--fq-muted); font-weight: 600;
 }

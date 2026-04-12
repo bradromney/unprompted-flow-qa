@@ -550,45 +550,52 @@ function SidebarInner(props: {
             })}
           </select>
         )}
-        <div style={{ position: "relative" }}>
-          <button
-            type="button"
-            className="fq-gear-btn"
-            onClick={() => setToolsOpen(!toolsOpen)}
-            title="Tools"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6.5 1.5h3l.4 1.6.7.3 1.4-.8 2.1 2.1-.8 1.4.3.7 1.6.4v3l-1.6.4-.3.7.8 1.4-2.1 2.1-1.4-.8-.7.3-.4 1.6h-3l-.4-1.6-.7-.3-1.4.8-2.1-2.1.8-1.4-.3-.7L.8 9.5v-3l1.6-.4.3-.7-.8-1.4 2.1-2.1 1.4.8.7-.3.4-1.6z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.2"/></svg>
-          </button>
-          {toolsOpen && (
-            <div className="fq-tools-popover">
-              <div className="fq-tools-popover-section">
-                <div className="fq-tools-popover-label">Export</div>
-                <div className="fq-row">
-                  <button type="button" className="fq-btn" onClick={() => { onExportMd(); setToolsOpen(false); }}>Markdown</button>
-                  <button type="button" className="fq-btn" onClick={() => { onExportJson(); setToolsOpen(false); }}>JSON</button>
-                </div>
-              </div>
-              <div className="fq-tools-popover-section">
-                <div className="fq-tools-popover-label">Viewport</div>
-                <div className="fq-row">
-                  {(["375", "414", "768", "full"] as const).map((v) => (
-                    <button key={v} type="button" className="fq-btn" data-active={viewport === v} onClick={() => setViewport(v)}>
-                      {v === "full" ? "Full" : `${v}px`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="fq-tools-popover-section">
-                <div className="fq-tools-popover-label">Facade</div>
-                <div className="fq-row">
-                  <button type="button" className="fq-btn" onClick={() => { onApplyFacadeMode("off"); setToolsOpen(false); }}>Off</button>
-                  <button type="button" className="fq-btn" onClick={() => { onApplyFacadeMode("empty_state"); setToolsOpen(false); }}>Empty-state</button>
-                </div>
+        <button
+          type="button"
+          className="fq-gear-btn"
+          onClick={() => setToolsOpen(!toolsOpen)}
+          title="Tools"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6.5 1.5h3l.4 1.6.7.3 1.4-.8 2.1 2.1-.8 1.4.3.7 1.6.4v3l-1.6.4-.3.7.8 1.4-2.1 2.1-1.4-.8-.7.3-.4 1.6h-3l-.4-1.6-.7-.3-1.4.8-2.1-2.1.8-1.4-.3-.7L.8 9.5v-3l1.6-.4.3-.7-.8-1.4 2.1-2.1 1.4.8.7-.3.4-1.6z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.2"/></svg>
+        </button>
+      </div>
+
+      {/* ── TOOLS OVERLAY — full sidebar backdrop ── */}
+      {toolsOpen && (
+        <>
+          <div className="fq-tools-backdrop" onClick={() => setToolsOpen(false)} />
+          <div className="fq-tools-panel">
+            <div className="fq-tools-panel-header">
+              <span className="fq-tools-panel-title">Tools</span>
+              <button type="button" className="fq-gear-btn" onClick={() => setToolsOpen(false)}>✕</button>
+            </div>
+            <div className="fq-tools-panel-section">
+              <div className="fq-tools-panel-label">Export</div>
+              <div className="fq-row">
+                <button type="button" className="fq-btn" onClick={() => { onExportMd(); setToolsOpen(false); }}>Markdown</button>
+                <button type="button" className="fq-btn" onClick={() => { onExportJson(); setToolsOpen(false); }}>JSON</button>
               </div>
             </div>
-          )}
-        </div>
-      </div>
+            <div className="fq-tools-panel-section">
+              <div className="fq-tools-panel-label">Viewport</div>
+              <div className="fq-row">
+                {(["375", "414", "768", "full"] as const).map((v) => (
+                  <button key={v} type="button" className="fq-btn" data-active={viewport === v} onClick={() => { setViewport(v); setToolsOpen(false); }}>
+                    {v === "full" ? "Full" : `${v}px`}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="fq-tools-panel-section">
+              <div className="fq-tools-panel-label">Facade</div>
+              <div className="fq-row">
+                <button type="button" className="fq-btn" onClick={() => { onApplyFacadeMode("off"); setToolsOpen(false); }}>Off</button>
+                <button type="button" className="fq-btn" onClick={() => { onApplyFacadeMode("empty_state"); setToolsOpen(false); }}>Empty-state</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── SCROLLABLE BODY ── */}
       <div className="fq-body">
