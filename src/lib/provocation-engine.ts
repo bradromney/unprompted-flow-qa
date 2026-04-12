@@ -19,10 +19,17 @@ export interface ProvocationOption {
   targetId?: string;
 }
 
+export interface ProvocationChip {
+  label: string;
+  value: number;
+  max?: number;
+}
+
 export interface Provocation {
   id: string;
   thesis: string;
   whyNow: string;
+  chip?: ProvocationChip;
   stratum: Stratum;
   severity: "critical" | "important" | "notable";
   options: ProvocationOption[];
@@ -79,7 +86,8 @@ function* contradictedAssumptions(ctx: ProvocationContext): Generator<Provocatio
     yield {
       id,
       thesis: `"${trunc(a.assumption, 60)}" — the evidence says otherwise.`,
-      whyNow: `${a.contradicts} thing${a.contradicts !== 1 ? "s" : ""} contradict this, nothing supports it${flowNames.length ? ` (in ${flowNames.join(", ")})` : ""}`,
+      whyNow: flowNames.length ? `In ${flowNames.join(", ")}` : "No supporting evidence found",
+      chip: { label: "contradicting", value: a.contradicts },
       stratum: "strategy",
       severity: "critical",
       options: [
@@ -111,7 +119,8 @@ function* mixedAssumptions(ctx: ProvocationContext): Generator<Provocation> {
     yield {
       id,
       thesis: `"${trunc(a.assumption, 60)}" — some evidence for, some against.`,
-      whyNow: `${a.supports} supporting, ${a.contradicts} contradicting — time to make a call`,
+      whyNow: `Time to make a call`,
+      chip: { label: "split", value: a.contradicts, max: a.supports + a.contradicts },
       stratum: "strategy",
       severity: "important",
       options: [
@@ -142,7 +151,8 @@ function* staleFlows(ctx: ProvocationContext): Generator<Provocation> {
     yield {
       id,
       thesis: `"${trunc(f.title, 40)}" changed since you last checked it.`,
-      whyNow: `${staleCount} of ${f.steps.length} checkpoints were affected by recent code changes`,
+      whyNow: `Recent code changes affected this experience`,
+      chip: { label: "changed", value: staleCount, max: f.steps.length },
       stratum: "architecture",
       severity: "important",
       options: [
@@ -180,7 +190,8 @@ function* coverageGaps(ctx: ProvocationContext): Generator<Provocation> {
     yield {
       id,
       thesis: `You\u2019ve barely looked at the ${seg.segment} experience.`,
-      whyNow: `${seg.totalSteps - seg.visitedSteps} of ${seg.totalSteps} checkpoints still unchecked`,
+      whyNow: `Most of this experience is unchecked`,
+      chip: { label: "unchecked", value: seg.totalSteps - seg.visitedSteps, max: seg.totalSteps },
       stratum: "strategy",
       severity: "notable",
       options: [

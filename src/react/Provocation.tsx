@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import type { Provocation as ProvocationType, ProvocationOption } from "../lib/provocation-engine";
+import type { Provocation as ProvocationType, ProvocationOption, ProvocationChip } from "../lib/provocation-engine";
 
 /* ─── Single Card ──────────────────────────────────────────────────────── */
 
@@ -74,9 +74,20 @@ function ProvocationCardInner({
         <span className="fq-provocation-glyph">{glyph}</span>
         {provocation.thesis}
       </div>
-      {provocation.whyNow && (
-        <div className="fq-provocation-why">{provocation.whyNow}</div>
-      )}
+      <div className="fq-provocation-meta">
+        {provocation.chip && (
+          <span className={`fq-provocation-chip fq-provocation-chip-${provocation.severity}`}>
+            <span className="fq-provocation-chip-value">{provocation.chip.value}</span>
+            {provocation.chip.max && (
+              <span className="fq-provocation-chip-max">/{provocation.chip.max}</span>
+            )}
+            {" "}{provocation.chip.label}
+          </span>
+        )}
+        {provocation.whyNow && (
+          <span className="fq-provocation-why">{provocation.whyNow}</span>
+        )}
+      </div>
       <div className="fq-provocation-options">
         {primaryOpt && (
           <button
@@ -130,6 +141,12 @@ function NotableTeaser({
     >
       <span className="fq-provocation-glyph">{SEVERITY_GLYPH.notable}</span>
       <span className="fq-provocation-teaser-text">{provocation.thesis}</span>
+      {provocation.chip && (
+        <span className={`fq-provocation-chip fq-provocation-chip-${provocation.severity} fq-provocation-chip-sm`}>
+          <span className="fq-provocation-chip-value">{provocation.chip.value}</span>
+          {provocation.chip.max && <span className="fq-provocation-chip-max">/{provocation.chip.max}</span>}
+        </span>
+      )}
       <span className="fq-provocation-teaser-arrow">›</span>
     </div>
   );

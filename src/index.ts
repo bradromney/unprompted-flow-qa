@@ -51,6 +51,7 @@ export {
   generateProvocations,
   type Provocation,
   type ProvocationOption,
+  type ProvocationChip,
   type ProvocationContext,
   type Stratum,
 } from "./lib/provocation-engine";

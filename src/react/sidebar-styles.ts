@@ -347,11 +347,28 @@ export const SIDEBAR_CSS = `
 .fq-provocation-critical .fq-provocation-glyph { color: var(--fq-danger); }
 .fq-provocation-important .fq-provocation-glyph { color: var(--fq-warn); }
 .fq-provocation-notable .fq-provocation-glyph { color: var(--fq-muted); }
-/* ── Thesis + why ── */
-.fq-provocation-thesis { font-size: 13px; line-height: 1.35; font-weight: 500; margin-bottom: 3px; }
+/* ── Thesis + meta row ── */
+.fq-provocation-thesis { font-size: 13px; line-height: 1.35; font-weight: 500; margin-bottom: 4px; }
 .fq-provocation-notable .fq-provocation-thesis { font-weight: 400; font-size: 12px; }
-.fq-provocation-why { font-size: 11px; color: var(--fq-muted); margin-bottom: 8px; }
-.fq-provocation-notable .fq-provocation-why { margin-bottom: 6px; }
+.fq-provocation-meta {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.fq-provocation-why { font-size: 11px; color: var(--fq-muted); }
+.fq-provocation-notable .fq-provocation-meta { margin-bottom: 6px; }
+/* ── Chip ── */
+.fq-provocation-chip {
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 600;
+  white-space: nowrap; flex-shrink: 0;
+}
+.fq-provocation-chip-value { font-variant-numeric: tabular-nums; }
+.fq-provocation-chip-max { font-weight: 400; opacity: 0.7; }
+.fq-provocation-chip-critical { background: rgba(248,81,73,0.15); color: var(--fq-danger); }
+.fq-provocation-chip-important { background: rgba(210,153,34,0.15); color: var(--fq-warn); }
+.fq-provocation-chip-notable { background: rgba(139,148,158,0.12); color: var(--fq-muted); }
+.fq-provocation-chip-sm { padding: 1px 6px; font-size: 10px; }
 /* ── Action buttons ── */
 .fq-provocation-options { display: flex; flex-wrap: wrap; gap: 6px; }
 .fq-provocation-btn {
