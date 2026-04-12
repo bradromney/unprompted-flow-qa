@@ -511,26 +511,26 @@ function SidebarInner(props: {
       {/* ── HEADER ── */}
       <div className="fq-header">
         <div className="fq-brand">Flow QA</div>
-        <select
-          className="fq-select fq-flow-dropdown"
-          value={activeFlowId ?? ""}
-          onChange={(e) => setActiveFlowId(e.target.value || null)}
-        >
-          <option value="">
-            {suggestedFlow ? suggestedFlow.title : "Select a flow..."}
-          </option>
-          {segFlows.map((f) => {
-            const staleCount = f.steps.filter((s) => stale.has(s)).length;
-            const hot = hotFlows.some((h) => h.id === f.id);
-            const here = flowsHere.some((fh) => fh.id === f.id);
-            const tag = staleCount ? ` [${staleCount} stale]` : hot ? " [changed]" : here ? " [here]" : "";
-            return (
-              <option key={f.id} value={f.id}>
-                {f.title}{tag}
-              </option>
-            );
-          })}
-        </select>
+        <div style={{ flex: 1 }} />
+        {/* Segment filter */}
+        {segments.length > 1 && (
+          <select
+            className="fq-select fq-segment-dropdown"
+            value={selectedSegment ?? ""}
+            onChange={(e) => setSelectedSegment(e.target.value || null)}
+          >
+            <option value="">All segments</option>
+            {segments.map((s) => {
+              const seg = strategyState?.segments.find((sc) => sc.segment === s);
+              const pct = seg ? Math.round(seg.coverage * 100) : null;
+              return (
+                <option key={s} value={s}>
+                  {s}{pct !== null ? ` (${pct}%)` : ""}
+                </option>
+              );
+            })}
+          </select>
+        )}
         <div style={{ position: "relative" }}>
           <button
             type="button"
@@ -579,30 +579,34 @@ function SidebarInner(props: {
           </div>
         )}
 
-        {/* Segment picker — with coverage counts baked in */}
-        {segments.length > 1 && (
-          <div className="fq-segment-picker">
-            <button
-              type="button"
-              className={`fq-segment-btn ${selectedSegment === null ? "fq-segment-btn-active" : ""}`}
-              onClick={() => setSelectedSegment(null)}
-            >All</button>
-            {segments.map((s) => {
-              const seg = strategyState?.segments.find((sc) => sc.segment === s);
-              const pct = seg ? Math.round(seg.coverage * 100) : null;
+        {/* Flow selector — prominent, with other-flows count */}
+        <div className="fq-flow-selector">
+          <select
+            className="fq-select fq-flow-dropdown"
+            value={activeFlowId ?? ""}
+            onChange={(e) => setActiveFlowId(e.target.value || null)}
+          >
+            <option value="">
+              {suggestedFlow ? suggestedFlow.title : "Select a flow..."}
+            </option>
+            {segFlows.map((f) => {
+              const staleCount = f.steps.filter((s) => stale.has(s)).length;
+              const hot = hotFlows.some((h) => h.id === f.id);
+              const here = flowsHere.some((fh) => fh.id === f.id);
+              const tag = staleCount ? ` [${staleCount} stale]` : hot ? " [changed]" : here ? " [here]" : "";
               return (
-                <button
-                  key={s}
-                  type="button"
-                  className={`fq-segment-btn ${selectedSegment === s ? "fq-segment-btn-active" : ""}`}
-                  onClick={() => setSelectedSegment(selectedSegment === s ? null : s)}
-                >
-                  {s}{pct !== null && <span className="fq-segment-pct" title={`${pct}% of steps checked`}>{pct}%</span>}
-                </button>
+                <option key={f.id} value={f.id}>
+                  {f.title}{tag}
+                </option>
               );
             })}
-          </div>
-        )}
+          </select>
+          {displayFlow && flowsHere.length > 1 && (
+            <span className="fq-flow-selector-hint">
+              +{flowsHere.length - 1} on this page
+            </span>
+          )}
+        </div>
 
         {/* ── PRIORITY FLOWS ── */}
         {!displayFlow && priorityFlows.length > 0 && (
@@ -650,12 +654,6 @@ function SidebarInner(props: {
             <span className="fq-all-clear-detail">
               {segFlows.length} flow{segFlows.length !== 1 ? "s" : ""} checked · {issues.length} issue{issues.length !== 1 ? "s" : ""} logged
             </span>
-          </div>
-        )}
-        {/* Other flows on this page — compact hint when a flow is active */}
-        {displayFlow && flowsHere.length > 1 && (
-          <div className="fq-other-flows-hint">
-            {flowsHere.length - 1} other flow{flowsHere.length - 1 !== 1 ? "s" : ""} also touch{flowsHere.length - 1 === 1 ? "es" : ""} this page
           </div>
         )}
 
@@ -900,9 +898,16 @@ function SidebarInner(props: {
         {/* ── LOG ISSUE — inline input, expands on focus ── */}
         {displayFlow && (
           <div className="fq-issue-inline">
+            <div className="fq-issue-inline-header">
+              <span className="fq-issue-inline-label">LOG</span>
+              {currentStepForIssue && (() => {
+                const stepIdx = displayFlow.steps.findIndex(sid => bundle.steps[sid] === currentStepForIssue);
+                return stepIdx >= 0 ? <span className="fq-issue-inline-step">on step {stepIdx + 1}</span> : null;
+              })()}
+            </div>
             <textarea
               className="fq-issue-inline-input"
-              placeholder="Something off? Describe the issue…"
+              placeholder="Something off? Log an issue…"
               value={issueDraft.notes}
               rows={issueInputFocused ? 3 : 1}
               onFocus={() => setIssueInputFocused(true)}
@@ -994,13 +999,14 @@ function SidebarInner(props: {
           </div>
         )}
 
-        {/* ── OBSERVATION DECK — unified, with scope filter ── */}
+        {/* ── INSIGHTS — unified observation deck, with scope filter ── */}
         {observations.length > 0 && (
           <details className="fq-collapse">
             <summary>
-              {obsScope === "page" ? pageObservations.length : observations.length} observation{(obsScope === "page" ? pageObservations.length : observations.length) !== 1 ? "s" : ""}
+              <span className="fq-insights-label">Insights</span>
+              <span className="fq-insights-count">{obsScope === "page" ? pageObservations.length : observations.length}</span>
               {obsScope === "page" && pageObservations.length < observations.length && (
-                <span className="fq-muted" style={{ marginLeft: 4 }}>of {observations.length}</span>
+                <span className="fq-muted" style={{ marginLeft: 2 }}>of {observations.length}</span>
               )}
             </summary>
             <div style={{ marginTop: 6 }}>
@@ -1031,10 +1037,10 @@ function SidebarInner(props: {
       <div className="fq-footer">
         <button
           type="button"
-          className={`fq-btn fq-btn-copy ${copied ? "fq-btn-copy-done" : ""}`}
+          className={`fq-btn fq-btn-copy-subtle ${copied ? "fq-btn-copy-done" : ""}`}
           onClick={onCopySession}
         >
-          {copied ? "Copied!" : "Copy QA report"}
+          {copied ? "✓ Copied" : "Copy QA report"}
         </button>
       </div>
     </div>
