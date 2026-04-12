@@ -138,6 +138,9 @@ export class FlowQAStore {
   sessionState: SessionState = { activeSession: null, history: [] };
   issueDraft: IssueDraft = { ...EMPTY_ISSUE_DRAFT };
   selectedSegment: string | null = null;
+  dismissedProvocationIds: Set<string> = new Set(
+    JSON.parse(localStorage.getItem("fq-dismissed-provocations") || "[]")
+  );
 
   // ── Subscriptions ──
   private listeners = new Set<StoreListener>();
@@ -584,6 +587,19 @@ export class FlowQAStore {
     applyCopyPatches(this.opts.getAppViewportEl(), [patch]);
     this.facadeMode = "copy_review";
     persistFacadeMode("copy_review");
+    this.notify();
+  }
+
+  /* ─── Provocations ──────────────────────────────────────────────── */
+
+  dismissProvocation(id: string) {
+    this.dismissedProvocationIds.add(id);
+    try {
+      localStorage.setItem(
+        "fq-dismissed-provocations",
+        JSON.stringify([...this.dismissedProvocationIds])
+      );
+    } catch {}
     this.notify();
   }
 

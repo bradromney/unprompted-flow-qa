@@ -7,7 +7,9 @@ import { strategicGaps } from "../lib/git-map";
 import type { FacadeMode } from "../lib/storage";
 import type { StrategyState } from "../lib/strategy-inference";
 import { dwellLabel, sessionStats, type FlowSession } from "../lib/session-tracker";
+import { generateProvocations, type Provocation, type ProvocationContext } from "../lib/provocation-engine";
 import { SIDEBAR_CSS } from "./sidebar-styles";
+import { ProvocationCard } from "./Provocation";
 import { useFlowQAStore } from "./useFlowQAStore";
 
 const VIEWPORT_WIDTH: Record<string, string | undefined> = {
@@ -114,6 +116,7 @@ export function FlowQAShell(props: FlowQAShellProps) {
   const onApplyFacadeMode = useCallback((m: FacadeMode) => store.onApplyFacadeMode(m), [store]);
   const onApplyCopy = useCallback(() => store.onApplyCopy(), [store]);
   const onRecordCorrection = useCallback(() => store.onRecordCorrection(), [store]);
+  const onDismissProvocation = useCallback((id: string) => store.dismissProvocation(id), [store]);
 
   useLayoutEffect(() => {
     if (!enabled || !open) {
@@ -191,6 +194,8 @@ export function FlowQAShell(props: FlowQAShellProps) {
         sessionHistory={sessionHistory}
         onCopySession={onCopySession}
         copied={copied}
+        dismissedProvocationIds={store.dismissedProvocationIds}
+        onDismissProvocation={onDismissProvocation}
       />
     );
   });
@@ -332,6 +337,8 @@ function SidebarInner(props: {
   sessionHistory: FlowSession[];
   onCopySession: () => void;
   copied: boolean;
+  dismissedProvocationIds: Set<string>;
+  onDismissProvocation: (id: string) => void;
 }) {
   const {
     changed,
@@ -378,6 +385,8 @@ function SidebarInner(props: {
     sessionHistory,
     onCopySession,
     copied,
+    dismissedProvocationIds,
+    onDismissProvocation,
   } = props;
 
   const [expandedNotes, setExpandedNotes] = useState<string | null>(null);
@@ -443,15 +452,20 @@ function SidebarInner(props: {
   });
   const otherObservations = observations.filter((o) => !pageObservations.includes(o));
 
-  // Strategy: only surface assumptions that are actionable (at_risk or mixed)
-  const actionableAssumptions = strategyState?.assumptions.filter(
-    (a) => a.status === "at_risk" || a.status === "mixed"
-  ) ?? [];
-
-  // Strategy: only surface high/medium signals (skip "low" noise)
-  const importantSignals = strategyState?.signals.filter(
-    (s) => s.severity === "high" || s.severity === "medium"
-  ) ?? [];
+  // Provocations — deterministic, replaces both alerts and assumptions section
+  const provocations: Provocation[] = (() => {
+    if (!strategyState || !bundle) return [];
+    const ctx: ProvocationContext = {
+      strategyState,
+      bundle,
+      issues,
+      observations,
+      stale,
+      pathname,
+      dismissedIds: dismissedProvocationIds,
+    };
+    return generateProvocations(ctx);
+  })();
 
   return (
     <div className="fq-root">
@@ -513,14 +527,21 @@ function SidebarInner(props: {
           </div>
         )}
 
-        {/* ── ALERTS — only if something needs attention ── */}
-        {importantSignals.length > 0 && (
-          <div className="fq-alerts">
-            {importantSignals.slice(0, 3).map((sig, i) => (
-              <div key={i} className={`fq-alert fq-alert-${sig.severity}`}>
-                <span className="fq-alert-title">{sig.title}</span>
-                <span className="fq-alert-detail">{sig.detail}</span>
-              </div>
+        {/* ── PROVOCATIONS — opinionated co-founder cards ── */}
+        {provocations.length > 0 && (
+          <div className="fq-provocations">
+            {provocations.map((p) => (
+              <ProvocationCard
+                key={p.id}
+                provocation={p}
+                onDismiss={onDismissProvocation}
+                onCopyPrompt={(text) => {
+                  navigator.clipboard.writeText(text);
+                }}
+                onNavigate={(flowId) => {
+                  setActiveFlowId(flowId);
+                }}
+              />
             ))}
           </div>
         )}
@@ -760,35 +781,6 @@ function SidebarInner(props: {
           </>
           );
         })()}
-
-        {/* ── ASSUMPTIONS AT RISK — only actionable ones ── */}
-        {actionableAssumptions.length > 0 && (
-          <details className="fq-collapse" open>
-            <summary>
-              {actionableAssumptions.length} assumption{actionableAssumptions.length !== 1 ? "s" : ""} need attention
-            </summary>
-            <div className="fq-assumption-list">
-              {actionableAssumptions.slice(0, 5).map((a, i) => (
-                <div key={i} className={`fq-assumption fq-assumption-${a.status}`}>
-                  <div className="fq-assumption-header">
-                    <span className={`fq-assumption-badge fq-badge-${a.status}`}>
-                      {a.status === "at_risk" ? "AT RISK" : "MIXED"}
-                    </span>
-                    <span className="fq-assumption-counts">
-                      {a.supports}&#8593; {a.contradicts}&#8595;
-                    </span>
-                  </div>
-                  <div className="fq-assumption-text">{a.assumption}</div>
-                </div>
-              ))}
-              {actionableAssumptions.length > 5 && (
-                <div className="fq-muted" style={{ fontSize: 11, marginTop: 4 }}>
-                  +{actionableAssumptions.length - 5} more
-                </div>
-              )}
-            </div>
-          </details>
-        )}
 
         {/* ── ISSUES ── */}
         {issues.length > 0 && (

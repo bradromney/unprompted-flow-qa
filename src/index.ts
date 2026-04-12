@@ -47,3 +47,11 @@ export {
   type FlowSession,
   type StepEngagement,
 } from "./lib/session-tracker";
+export {
+  generateProvocations,
+  type Provocation,
+  type ProvocationOption,
+  type ProvocationContext,
+  type Stratum,
+} from "./lib/provocation-engine";
+export { ProvocationCard } from "./react/Provocation";

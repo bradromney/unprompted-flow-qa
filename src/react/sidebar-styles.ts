@@ -304,4 +304,27 @@ export const SIDEBAR_CSS = `
   background: rgba(63,185,80,0.08); border: 1px solid rgba(63,185,80,0.2);
   color: var(--fq-ok); text-align: center;
 }
+/* Provocations */
+.fq-provocations { display: flex; flex-direction: column; gap: 8px; }
+.fq-provocation {
+  padding: 10px 12px; border-radius: var(--fq-radius);
+  border: 1px solid var(--fq-border); background: var(--fq-panel);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.fq-provocation-critical { border-left: 3px solid var(--fq-danger); background: rgba(248,81,73,0.04); }
+.fq-provocation-important { border-left: 3px solid var(--fq-warn); background: rgba(210,153,34,0.04); }
+.fq-provocation-notable { border-left: 3px solid var(--fq-accent); background: rgba(88,166,255,0.04); }
+.fq-provocation-fade { opacity: 0; transform: translateX(20px); pointer-events: none; }
+.fq-provocation-thesis { font-size: 13px; line-height: 1.4; font-weight: 500; margin-bottom: 4px; }
+.fq-provocation-why { font-size: 11px; color: var(--fq-muted); margin-bottom: 8px; }
+.fq-provocation-options { display: flex; flex-wrap: wrap; gap: 6px; }
+.fq-provocation-btn {
+  appearance: none; border: 1px solid var(--fq-border); background: #21262d;
+  color: var(--fq-text); border-radius: 6px; padding: 4px 10px;
+  font-size: 11px; cursor: pointer; transition: all 0.15s;
+}
+.fq-provocation-btn:hover { border-color: var(--fq-accent); color: var(--fq-accent); }
+.fq-provocation-btn-muted { color: var(--fq-muted); }
+.fq-provocation-btn-muted:hover { border-color: var(--fq-muted); color: var(--fq-text); }
+.fq-provocation-btn-copied { background: var(--fq-ok); border-color: var(--fq-ok); color: #fff; }
 `;
