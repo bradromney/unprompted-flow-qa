@@ -884,7 +884,7 @@ function SidebarInner(props: {
 
         {/* ── LOG ISSUE ── */}
         {displayFlow && (
-          <details className="fq-collapse fq-collapse-action">
+          <details className="fq-collapse">
             <summary>Log an issue</summary>
             <div style={{ marginTop: 8 }}>
               {currentStepForIssue?.assumption_dependency && (
