@@ -421,10 +421,41 @@ export const SIDEBAR_CSS = `
 /* ── Session tracking ── */
 .fq-dwell-label { font-size: 10px; color: var(--fq-muted); margin-left: 6px; opacity: 0.7; }
 .fq-session-complete {
-  padding: 8px 10px; border-radius: var(--fq-radius-sm); font-size: 12px;
-  background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.2);
-  color: var(--fq-ok); text-align: center; font-weight: 500;
+  padding: 14px 16px; border-radius: var(--fq-radius);
+  background: linear-gradient(135deg, rgba(74,222,128,0.08) 0%, rgba(74,222,128,0.03) 100%);
+  border: 1px solid rgba(74,222,128,0.2);
+  color: var(--fq-ok); text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  box-shadow: 0 0 16px rgba(74,222,128,0.06);
 }
+.fq-complete-icon {
+  font-size: 20px; font-weight: 700;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(74,222,128,0.15); display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 12px rgba(74,222,128,0.2);
+  margin-bottom: 2px;
+}
+.fq-complete-title { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+.fq-complete-detail { font-size: 11px; color: var(--fq-muted); }
+
+/* ── All caught up ── */
+.fq-all-clear {
+  padding: 20px 16px; border-radius: var(--fq-radius);
+  background: linear-gradient(135deg, rgba(74,222,128,0.06) 0%, rgba(129,140,248,0.04) 100%);
+  border: 1px solid rgba(74,222,128,0.15);
+  text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  box-shadow: var(--fq-shadow-sm);
+}
+.fq-all-clear-icon {
+  font-size: 22px; font-weight: 700; color: var(--fq-ok);
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(74,222,128,0.12); display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 16px rgba(74,222,128,0.15);
+  margin-bottom: 4px;
+}
+.fq-all-clear-title { font-size: 15px; font-weight: 700; color: var(--fq-ok); letter-spacing: -0.01em; }
+.fq-all-clear-detail { font-size: 12px; color: var(--fq-muted); }
 
 /* ── Collapsible sections — styled disclosure ── */
 .fq-collapse { border-radius: var(--fq-radius-sm); }

@@ -10,6 +10,47 @@ import { dwellLabel, sessionStats, type FlowSession } from "../lib/session-track
 import { SIDEBAR_CSS } from "./sidebar-styles";
 import { useFlowQAStore } from "./useFlowQAStore";
 
+/* Humanize snake_case observation types into readable labels */
+const OBS_TYPE_LABELS: Record<string, string> = {
+  code_strategy_gap: "Strategy gap",
+  implementation_inconsistency: "Inconsistency",
+  complexity_concentration: "Complexity risk",
+  captured_but_unused_data: "Unused data",
+  cross_page_disconnect: "Disconnect",
+  infrastructure_gap: "Infra gap",
+  missed_connection: "Missed connection",
+  hidden_feature: "Hidden feature",
+};
+function humanizeObsType(raw: string): string {
+  return OBS_TYPE_LABELS[raw] ?? raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/* Truncate observation text for sidebar display */
+function truncateObs(text: string, max = 120): { short: string; truncated: boolean } {
+  if (text.length <= max) return { short: text, truncated: false };
+  // Find sentence boundary near max
+  const cut = text.lastIndexOf(". ", max);
+  const end = cut > max * 0.5 ? cut + 1 : max;
+  return { short: text.slice(0, end) + "…", truncated: true };
+}
+
+/* Expandable observation card */
+function ObservationCard({ o }: { o: { observation: string; type: string; suggested_assumption?: string } }) {
+  const [expanded, setExpanded] = useState(false);
+  const { short, truncated } = truncateObs(o.observation);
+  return (
+    <div className="fq-observation-card" onClick={truncated ? () => setExpanded(!expanded) : undefined} style={truncated ? { cursor: "pointer" } : undefined}>
+      <div className="fq-observation-card-type">{humanizeObsType(o.type)}</div>
+      <div className="fq-observation-card-text">{expanded ? o.observation : short}</div>
+      {expanded && o.suggested_assumption && (
+        <div className="fq-observation-card-assumption">
+          Assumption: {o.suggested_assumption}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const VIEWPORT_WIDTH: Record<string, string | undefined> = {
   "375": "375px",
   "414": "414px",
@@ -515,7 +556,7 @@ function SidebarInner(props: {
                   className={`fq-segment-btn ${selectedSegment === s ? "fq-segment-btn-active" : ""}`}
                   onClick={() => setSelectedSegment(selectedSegment === s ? null : s)}
                 >
-                  {s}{pct !== null && <span className="fq-segment-pct">{pct}%</span>}
+                  {s}{pct !== null && <span className="fq-segment-pct" title={`${pct}% of steps checked`}>{pct}%</span>}
                 </button>
               );
             })}
@@ -558,6 +599,16 @@ function SidebarInner(props: {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+        {/* All caught up — when no flows need attention */}
+        {!displayFlow && priorityFlows.length === 0 && segFlows.length > 0 && (
+          <div className="fq-all-clear">
+            <span className="fq-all-clear-icon">✓</span>
+            <span className="fq-all-clear-title">All caught up</span>
+            <span className="fq-all-clear-detail">
+              {segFlows.length} flow{segFlows.length !== 1 ? "s" : ""} checked · {issues.length} issue{issues.length !== 1 ? "s" : ""} logged
+            </span>
           </div>
         )}
         {/* Other flows on this page — compact hint when a flow is active */}
@@ -658,7 +709,14 @@ function SidebarInner(props: {
             </div>
             {flowSession?.completed && flowSession.flowId === displayFlow.id && (
               <div className="fq-session-complete">
-                Flow complete
+                <span className="fq-complete-icon">✓</span>
+                <span className="fq-complete-title">Flow complete</span>
+                <span className="fq-complete-detail">
+                  {totalSteps} step{totalSteps !== 1 ? "s" : ""} checked
+                  {issues.filter((i) => i.flowId === displayFlow.id).length > 0
+                    ? ` · ${issues.filter((i) => i.flowId === displayFlow.id).length} issue${issues.filter((i) => i.flowId === displayFlow.id).length !== 1 ? "s" : ""} logged`
+                    : " · no issues found"}
+                </span>
               </div>
             )}
 
@@ -787,15 +845,7 @@ function SidebarInner(props: {
                 <summary>{pageObservations.length} observation{pageObservations.length !== 1 ? "s" : ""} on this page</summary>
                 <div className="fq-observation-list">
                   {pageObservations.map((o, i) => (
-                    <div key={i} className="fq-observation-card">
-                      <div className="fq-observation-card-type">{o.type}</div>
-                      <div className="fq-observation-card-text">{o.observation}</div>
-                      {o.suggested_assumption && (
-                        <div className="fq-observation-card-assumption">
-                          Assumption: {o.suggested_assumption}
-                        </div>
-                      )}
-                    </div>
+                    <ObservationCard key={i} o={o} />
                   ))}
                 </div>
               </details>
@@ -952,15 +1002,7 @@ function SidebarInner(props: {
             </summary>
             <div className="fq-observation-list">
               {otherObservations.map((o, i) => (
-                <div key={i} className="fq-observation-card">
-                  <div className="fq-observation-card-type">{o.type}</div>
-                  <div className="fq-observation-card-text">{o.observation}</div>
-                  {o.suggested_assumption && (
-                    <div className="fq-observation-card-assumption">
-                      Assumption: {o.suggested_assumption}
-                    </div>
-                  )}
-                </div>
+                <ObservationCard key={i} o={o} />
               ))}
             </div>
           </details>
@@ -998,7 +1040,7 @@ function SidebarInner(props: {
           className={`fq-btn fq-btn-copy ${copied ? "fq-btn-copy-done" : ""}`}
           onClick={onCopySession}
         >
-          {copied ? "Copied!" : "Copy prompt"}
+          {copied ? "Copied!" : "Copy QA report"}
         </button>
       </div>
     </div>
