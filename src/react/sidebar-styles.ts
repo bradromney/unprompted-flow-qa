@@ -183,21 +183,32 @@ export const SIDEBAR_CSS = `
 .fq-progress-bar { height: 4px; border-radius: 2px; background: var(--fq-border); overflow: hidden; }
 .fq-progress-fill { height: 100%; background: linear-gradient(90deg, var(--fq-ok), #6EE7B7); border-radius: 2px; transition: width 0.3s ease; box-shadow: 0 0 8px rgba(74,222,128,0.4), 0 0 2px rgba(74,222,128,0.6); }
 
-/* ── Next step prompt ── */
-.fq-next-prompt {
-  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
-  background: linear-gradient(135deg, rgba(255,107,94,0.08) 0%, rgba(255,107,94,0.03) 100%);
-  border: 1px solid rgba(255,107,94,0.2);
-  border-radius: var(--fq-radius); font-size: 12px; cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(255,107,94,0.06);
+/* ── Progress + next step (merged) ── */
+.fq-progress-prompt {
+  padding: 10px 12px; border-radius: var(--fq-radius);
+  border: 1px solid var(--fq-border);
+  background: var(--fq-panel);
+  box-shadow: var(--fq-shadow-sm);
 }
-.fq-next-prompt:hover {
-  background: linear-gradient(135deg, rgba(255,107,94,0.12) 0%, rgba(255,107,94,0.05) 100%);
-  border-color: rgba(255,107,94,0.35);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(255,107,94,0.1);
+.fq-progress-prompt-top {
+  display: flex; align-items: center; gap: 8px;
 }
+.fq-progress-prompt-count {
+  font-size: 11px; color: var(--fq-muted); white-space: nowrap;
+  font-variant-numeric: tabular-nums; font-weight: 600;
+}
+.fq-progress-prompt-next {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 8px; padding-top: 8px;
+  border-top: 1px solid var(--fq-border-subtle);
+  font-size: 12px;
+}
+.fq-progress-prompt-label {
+  color: var(--fq-accent); font-weight: 700; font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0;
+}
+.fq-progress-prompt-text { flex: 1; min-width: 0; }
+.fq-progress-prompt-url { font-size: 10px; color: var(--fq-muted); flex-shrink: 0; }
 
 /* ── Flow header ── */
 .fq-flow-header-compact { margin-bottom: 8px; }

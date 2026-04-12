@@ -691,23 +691,8 @@ function SidebarInner(props: {
               )}
             </div>
 
-            {/* Progress */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div className="fq-progress-bar" style={{ flex: 1 }}>
-                <div className="fq-progress-fill" style={{ width: `${pct}%` }} />
-              </div>
-              <span className="fq-muted" style={{ fontSize: 11, whiteSpace: "nowrap" }}>
-                {visitedCount}/{totalSteps}
-                {staleInFlow > 0 && <span style={{ color: "var(--fq-warn)", marginLeft: 4 }}>· {staleInFlow} stale</span>}
-                {(() => {
-                  if (!flowSession || flowSession.flowId !== displayFlow.id) return null;
-                  const stats = sessionStats(flowSession);
-                  const dwell = dwellLabel(stats.totalDwellMs);
-                  return dwell ? <span style={{ marginLeft: 4 }}>· {dwell}</span> : null;
-                })()}
-              </span>
-            </div>
-            {flowSession?.completed && flowSession.flowId === displayFlow.id && (
+            {/* Progress + next step — merged */}
+            {flowSession?.completed && flowSession.flowId === displayFlow.id ? (
               <div className="fq-session-complete">
                 <span className="fq-complete-icon">✓</span>
                 <span className="fq-complete-title">Flow complete</span>
@@ -718,15 +703,25 @@ function SidebarInner(props: {
                     : " · no issues found"}
                 </span>
               </div>
-            )}
-
-            {/* Next step prompt */}
-            {nextStep && nextUnvisitedIdx !== activeStepIdx && (
-              <div className="fq-next-prompt" title="Navigate to this step">
-                <span style={{ color: "var(--fq-warn)", fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>Next</span>
-                <span style={{ flex: 1, fontSize: 12 }}>{nextStep.instructions}</span>
-                {nextStep.urlPattern && (
-                  <code style={{ fontSize: 10, color: "var(--fq-muted)" }}>{nextStep.urlPattern}</code>
+            ) : (
+              <div className="fq-progress-prompt">
+                <div className="fq-progress-prompt-top">
+                  <div className="fq-progress-bar" style={{ flex: 1 }}>
+                    <div className="fq-progress-fill" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="fq-progress-prompt-count">
+                    {visitedCount}/{totalSteps}
+                    {staleInFlow > 0 && <span style={{ color: "var(--fq-warn)", marginLeft: 4 }}>· {staleInFlow} stale</span>}
+                  </span>
+                </div>
+                {nextStep && nextUnvisitedIdx !== activeStepIdx && (
+                  <div className="fq-progress-prompt-next">
+                    <span className="fq-progress-prompt-label">Next</span>
+                    <span className="fq-progress-prompt-text">{nextStep.instructions}</span>
+                    {nextStep.urlPattern && (
+                      <code className="fq-progress-prompt-url">{nextStep.urlPattern}</code>
+                    )}
+                  </div>
                 )}
               </div>
             )}
