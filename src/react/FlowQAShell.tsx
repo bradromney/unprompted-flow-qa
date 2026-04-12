@@ -423,6 +423,9 @@ function SidebarInner(props: {
   } = props;
 
   const [expandedNotes, setExpandedNotes] = useState<string | null>(null);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [issueInputFocused, setIssueInputFocused] = useState(false);
+  const [obsScope, setObsScope] = useState<"page" | "all">("page");
 
   if (!bundle) {
     return (
@@ -528,6 +531,44 @@ function SidebarInner(props: {
             );
           })}
         </select>
+        <div style={{ position: "relative" }}>
+          <button
+            type="button"
+            className="fq-gear-btn"
+            onClick={() => setToolsOpen(!toolsOpen)}
+            title="Tools"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6.5 1.5h3l.4 1.6.7.3 1.4-.8 2.1 2.1-.8 1.4.3.7 1.6.4v3l-1.6.4-.3.7.8 1.4-2.1 2.1-1.4-.8-.7.3-.4 1.6h-3l-.4-1.6-.7-.3-1.4.8-2.1-2.1.8-1.4-.3-.7L.8 9.5v-3l1.6-.4.3-.7-.8-1.4 2.1-2.1 1.4.8.7-.3.4-1.6z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.2"/></svg>
+          </button>
+          {toolsOpen && (
+            <div className="fq-tools-popover">
+              <div className="fq-tools-popover-section">
+                <div className="fq-tools-popover-label">Export</div>
+                <div className="fq-row">
+                  <button type="button" className="fq-btn" onClick={() => { onExportMd(); setToolsOpen(false); }}>Markdown</button>
+                  <button type="button" className="fq-btn" onClick={() => { onExportJson(); setToolsOpen(false); }}>JSON</button>
+                </div>
+              </div>
+              <div className="fq-tools-popover-section">
+                <div className="fq-tools-popover-label">Viewport</div>
+                <div className="fq-row">
+                  {(["375", "414", "768", "full"] as const).map((v) => (
+                    <button key={v} type="button" className="fq-btn" data-active={viewport === v} onClick={() => setViewport(v)}>
+                      {v === "full" ? "Full" : `${v}px`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="fq-tools-popover-section">
+                <div className="fq-tools-popover-label">Facade</div>
+                <div className="fq-row">
+                  <button type="button" className="fq-btn" onClick={() => { onApplyFacadeMode("off"); setToolsOpen(false); }}>Off</button>
+                  <button type="button" className="fq-btn" onClick={() => { onApplyFacadeMode("empty_state"); setToolsOpen(false); }}>Empty-state</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── SCROLLABLE BODY ── */}
@@ -882,150 +923,137 @@ function SidebarInner(props: {
           </details>
         )}
 
-        {/* ── LOG ISSUE ── */}
+        {/* ── DIVIDER — separates flow from below-the-fold sections ── */}
+        <div className="fq-divider" />
+
+        {/* ── LOG ISSUE — inline input, expands on focus ── */}
         {displayFlow && (
-          <details className="fq-collapse">
-            <summary>Log an issue</summary>
-            <div style={{ marginTop: 8 }}>
-              {currentStepForIssue?.assumption_dependency && (
-                <div style={{ fontSize: 12, marginBottom: 8, padding: "6px 8px", background: "rgba(210,153,34,0.08)", borderRadius: 4 }}>
-                  <span style={{ color: "var(--fq-warn)" }}>Assumption:</span> {currentStepForIssue.assumption_dependency}
+          <div className="fq-issue-inline">
+            <textarea
+              className="fq-issue-inline-input"
+              placeholder="Something off? Describe the issue…"
+              value={issueDraft.notes}
+              rows={issueInputFocused ? 3 : 1}
+              onFocus={() => setIssueInputFocused(true)}
+              onChange={(e) => setIssueDraft((d) => ({ ...d, notes: e.target.value }))}
+            />
+            {issueInputFocused && (
+              <div className="fq-issue-inline-fields">
+                {currentStepForIssue?.assumption_dependency && (
+                  <div className="fq-issue-inline-assumption">
+                    <span style={{ color: "var(--fq-warn)" }}>Assumption:</span> {currentStepForIssue.assumption_dependency}
+                  </div>
+                )}
+                <div className="fq-issue-inline-row">
+                  <div style={{ flex: 1 }}>
+                    <div className="fq-label">Type</div>
+                    <div className="fq-row">
+                      {(
+                        [
+                          ["bug", "Bug"],
+                          ["ux_friction", "UX"],
+                          ["strategic_gap", "Strategic"],
+                          ["assumption_evidence", "Evidence"],
+                        ] as const
+                      ).map(([val, label]) => (
+                        <button
+                          key={val}
+                          type="button"
+                          className="fq-chip-btn"
+                          data-active={issueDraft.type === val}
+                          onClick={() => setIssueDraft((d) => ({ ...d, type: val }))}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="fq-label">Severity</div>
+                    <select
+                      className="fq-select"
+                      style={{ fontSize: 11, padding: "3px 6px" }}
+                      value={issueDraft.severity}
+                      onChange={(e) =>
+                        setIssueDraft((d) => ({
+                          ...d,
+                          severity: e.target.value as Issue["severity"],
+                        }))
+                      }
+                    >
+                      <option value="">---</option>
+                      <option value="critical">critical</option>
+                      <option value="major">major</option>
+                      <option value="minor">minor</option>
+                      <option value="observation">note</option>
+                    </select>
+                  </div>
                 </div>
-              )}
-              <div className="fq-type-grid">
-                {(
-                  [
-                    ["bug", "Bug"],
-                    ["ux_friction", "UX"],
-                    ["strategic_gap", "Strategic"],
-                    ["assumption_evidence", "Evidence"],
-                  ] as const
-                ).map(([val, label]) => (
-                  <button
-                    key={val}
-                    type="button"
-                    className="fq-type-btn"
-                    data-active={issueDraft.type === val}
-                    onClick={() => setIssueDraft((d) => ({ ...d, type: val }))}
-                  >
-                    {label}
+                {issueDraft.type === "assumption_evidence" && (
+                  <div>
+                    <div className="fq-label">Direction</div>
+                    <select
+                      className="fq-select"
+                      style={{ fontSize: 11, padding: "3px 6px", width: "auto" }}
+                      value={issueDraft.evidence_direction}
+                      onChange={(e) =>
+                        setIssueDraft((d) => ({
+                          ...d,
+                          evidence_direction: e.target.value as Issue["evidence_direction"],
+                        }))
+                      }
+                    >
+                      <option value="">---</option>
+                      <option value="supports">supports</option>
+                      <option value="contradicts">contradicts</option>
+                      <option value="ambiguous">ambiguous</option>
+                    </select>
+                  </div>
+                )}
+                <div className="fq-issue-inline-actions">
+                  <button type="button" className="fq-btn fq-btn-primary" style={{ fontSize: 11, padding: "4px 12px" }} onClick={() => { onLogIssue(); setIssueInputFocused(false); }}>
+                    Log
                   </button>
-                ))}
-              </div>
-              {issueDraft.type === "assumption_evidence" && (
-                <>
-                  <div className="fq-label" style={{ marginTop: 6 }}>Direction</div>
-                  <select
-                    className="fq-select"
-                    value={issueDraft.evidence_direction}
-                    onChange={(e) =>
-                      setIssueDraft((d) => ({
-                        ...d,
-                        evidence_direction: e.target.value as Issue["evidence_direction"],
-                      }))
-                    }
-                  >
-                    <option value="">---</option>
-                    <option value="supports">supports</option>
-                    <option value="contradicts">contradicts</option>
-                    <option value="ambiguous">ambiguous</option>
-                  </select>
-                </>
-              )}
-              <div className="fq-label" style={{ marginTop: 6 }}>Severity</div>
-              <select
-                className="fq-select"
-                value={issueDraft.severity}
-                onChange={(e) =>
-                  setIssueDraft((d) => ({
-                    ...d,
-                    severity: e.target.value as Issue["severity"],
-                  }))
-                }
-              >
-                <option value="">---</option>
-                <option value="critical">critical</option>
-                <option value="major">major</option>
-                <option value="minor">minor</option>
-                <option value="observation">observation</option>
-              </select>
-              <div className="fq-label" style={{ marginTop: 6 }}>What happened?</div>
-              <textarea
-                className="fq-textarea"
-                style={{ minHeight: 56 }}
-                value={issueDraft.notes}
-                onChange={(e) => setIssueDraft((d) => ({ ...d, notes: e.target.value }))}
-              />
-              <details className="fq-collapse" style={{ marginTop: 4 }}>
-                <summary>More fields</summary>
-                <div style={{ marginTop: 6 }}>
-                  <div className="fq-label">Strategic note</div>
-                  <textarea
-                    className="fq-textarea"
-                    style={{ minHeight: 48 }}
-                    value={issueDraft.strategic_note}
-                    onChange={(e) => setIssueDraft((d) => ({ ...d, strategic_note: e.target.value }))}
-                  />
-                  <div className="fq-label">Component</div>
-                  <input
-                    className="fq-input"
-                    value={issueDraft.componentName}
-                    onChange={(e) => setIssueDraft((d) => ({ ...d, componentName: e.target.value }))}
-                  />
-                  <div className="fq-label">Selector</div>
-                  <input
-                    className="fq-input"
-                    value={issueDraft.selector}
-                    onChange={(e) => setIssueDraft((d) => ({ ...d, selector: e.target.value }))}
-                  />
+                  <button type="button" className="fq-btn" style={{ fontSize: 11, padding: "4px 10px" }} onClick={() => setIssueInputFocused(false)}>
+                    Cancel
+                  </button>
                 </div>
-              </details>
-              <div className="fq-row" style={{ marginTop: 8 }}>
-                <button type="button" className="fq-btn fq-btn-primary" onClick={onLogIssue}>
-                  Log issue
-                </button>
               </div>
-            </div>
-          </details>
+            )}
+          </div>
         )}
 
-        {/* ── OBSERVATIONS — collapsed, deduped from page observations shown above ── */}
-        {otherObservations.length > 0 && (
+        {/* ── OBSERVATION DECK — unified, with scope filter ── */}
+        {observations.length > 0 && (
           <details className="fq-collapse">
             <summary>
-              {otherObservations.length} observation{otherObservations.length !== 1 ? "s" : ""}
+              {obsScope === "page" ? pageObservations.length : observations.length} observation{(obsScope === "page" ? pageObservations.length : observations.length) !== 1 ? "s" : ""}
+              {obsScope === "page" && pageObservations.length < observations.length && (
+                <span className="fq-muted" style={{ marginLeft: 4 }}>of {observations.length}</span>
+              )}
             </summary>
-            <div className="fq-observation-list">
-              {otherObservations.map((o, i) => (
-                <ObservationCard key={i} o={o} />
-              ))}
+            <div style={{ marginTop: 6 }}>
+              <div className="fq-obs-scope-picker">
+                <button type="button" className={`fq-obs-scope-btn ${obsScope === "page" ? "fq-obs-scope-btn-active" : ""}`} onClick={() => setObsScope("page")}>
+                  This page ({pageObservations.length})
+                </button>
+                <button type="button" className={`fq-obs-scope-btn ${obsScope === "all" ? "fq-obs-scope-btn-active" : ""}`} onClick={() => setObsScope("all")}>
+                  All ({observations.length})
+                </button>
+              </div>
+              <div className="fq-observation-list">
+                {(obsScope === "page" ? pageObservations : observations).map((o, i) => (
+                  <ObservationCard key={i} o={o} />
+                ))}
+                {obsScope === "page" && pageObservations.length === 0 && (
+                  <div className="fq-muted" style={{ fontSize: 12, textAlign: "center", padding: "8px 0" }}>
+                    No observations for this page
+                  </div>
+                )}
+              </div>
             </div>
           </details>
         )}
-
-        {/* ── TOOLS ── */}
-        <details className="fq-collapse">
-          <summary>Tools</summary>
-          <div style={{ marginTop: 8 }}>
-            <div className="fq-row" style={{ marginBottom: 8 }}>
-              <button type="button" className="fq-btn" onClick={onExportMd}>Export MD</button>
-              <button type="button" className="fq-btn" onClick={onExportJson}>JSON</button>
-            </div>
-            <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Viewport</div>
-            <div className="fq-row" style={{ marginTop: 4 }}>
-              {(["375", "414", "768", "full"] as const).map((v) => (
-                <button key={v} type="button" className="fq-btn" data-active={viewport === v} onClick={() => setViewport(v)}>
-                  {v === "full" ? "Full" : `${v}px`}
-                </button>
-              ))}
-            </div>
-            <div className="fq-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginTop: 8 }}>Facade</div>
-            <div className="fq-row" style={{ marginTop: 4 }}>
-              <button type="button" className="fq-btn" onClick={() => onApplyFacadeMode("off")}>Off</button>
-              <button type="button" className="fq-btn" onClick={() => onApplyFacadeMode("empty_state")}>Empty-state</button>
-            </div>
-          </div>
-        </details>
       </div>
 
       {/* ── STICKY FOOTER ── */}

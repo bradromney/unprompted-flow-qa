@@ -523,23 +523,96 @@ export const SIDEBAR_CSS = `
 }
 .fq-observation-teaser:hover { color: var(--fq-text); border-color: rgba(129,140,248,0.3); background: rgba(129,140,248,0.06); }
 
-/* ── Log issue action section ── */
-.fq-collapse-action > summary {
-  color: var(--fq-accent);
+/* ── Divider ── */
+.fq-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--fq-border), transparent);
+  margin: 4px 0;
+}
+
+/* ── Inline issue input ── */
+.fq-issue-inline {
+  border: 1px solid var(--fq-border);
+  border-radius: var(--fq-radius);
+  background: var(--fq-panel);
+  overflow: hidden;
+  transition: all 0.2s;
+  box-shadow: var(--fq-shadow-sm);
+}
+.fq-issue-inline:focus-within {
+  border-color: var(--fq-accent);
+  box-shadow: 0 0 0 2px var(--fq-accent-soft);
+}
+.fq-issue-inline-input {
+  width: 100%; border: none; background: transparent;
+  color: var(--fq-text); font-size: 12px; font-family: var(--fq-font);
+  padding: 10px 12px; resize: none; outline: none;
+  line-height: 1.4; transition: all 0.15s;
+}
+.fq-issue-inline-input::placeholder { color: var(--fq-muted); }
+.fq-issue-inline-fields {
+  padding: 0 12px 10px;
+  display: flex; flex-direction: column; gap: 8px;
+  border-top: 1px solid var(--fq-border-subtle);
+  padding-top: 8px;
+}
+.fq-issue-inline-assumption {
+  font-size: 11px; padding: 5px 8px;
+  background: rgba(240,173,78,0.06); border-radius: var(--fq-radius-sm);
+}
+.fq-issue-inline-row {
+  display: flex; gap: 8px; align-items: flex-start;
+}
+.fq-issue-inline-actions {
+  display: flex; gap: 6px;
+}
+.fq-chip-btn {
+  appearance: none; border: 1px solid var(--fq-border); background: transparent;
+  color: var(--fq-muted); border-radius: 999px; padding: 2px 10px;
+  font-size: 10px; cursor: pointer; transition: all 0.15s; font-weight: 600;
+}
+.fq-chip-btn:hover { border-color: var(--fq-muted); color: var(--fq-text); }
+.fq-chip-btn[data-active="true"] {
+  border-color: var(--fq-accent); color: var(--fq-accent);
   background: var(--fq-accent-soft);
-  border: 1px solid rgba(255,107,94,0.15);
-  border-radius: var(--fq-radius-sm);
-  padding: 8px 10px;
-  transition: all 0.15s;
 }
-.fq-collapse-action > summary::before { color: var(--fq-accent); }
-.fq-collapse-action > summary:hover {
-  background: rgba(255,107,94,0.15);
-  border-color: rgba(255,107,94,0.3);
+
+/* ── Observation scope picker ── */
+.fq-obs-scope-picker {
+  display: flex; gap: 4px; margin-bottom: 8px;
 }
-.fq-collapse-action[open] > summary {
-  border-radius: var(--fq-radius-sm) var(--fq-radius-sm) 0 0;
-  border-bottom-color: transparent;
+.fq-obs-scope-btn {
+  appearance: none; border: 1px solid var(--fq-border); background: transparent;
+  color: var(--fq-muted); border-radius: 999px; padding: 2px 10px;
+  font-size: 10px; cursor: pointer; transition: all 0.15s; font-weight: 500;
+}
+.fq-obs-scope-btn:hover { border-color: var(--fq-muted); color: var(--fq-text); }
+.fq-obs-scope-btn-active {
+  border-color: var(--fq-here); color: var(--fq-here);
+  background: rgba(129,140,248,0.1);
+}
+
+/* ── Gear button + tools popover ── */
+.fq-gear-btn {
+  appearance: none; background: none; border: 1px solid transparent;
+  color: var(--fq-muted); cursor: pointer; padding: 4px;
+  border-radius: var(--fq-radius-sm); transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.fq-gear-btn:hover { color: var(--fq-text); border-color: var(--fq-border); background: var(--fq-surface); }
+.fq-tools-popover {
+  position: absolute; top: calc(100% + 6px); right: 0;
+  width: 220px; background: var(--fq-panel);
+  border: 1px solid var(--fq-border); border-radius: var(--fq-radius);
+  box-shadow: var(--fq-shadow);
+  padding: 8px;
+  z-index: 100;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.fq-tools-popover-section { display: flex; flex-direction: column; gap: 4px; }
+.fq-tools-popover-label {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--fq-muted); font-weight: 600;
 }
 
 /* ── Other flows hint ── */
