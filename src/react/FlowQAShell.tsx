@@ -457,7 +457,7 @@ function SidebarInner(props: {
         const urgency = changed * 3 + unchecked * 2 + issueCount + (isHere ? 1 : 0);
         return { flow: f, unchecked, changed, isHere, issueCount, urgency, total: f.steps.length };
       })
-      .filter((pf) => pf.unchecked > 0 || pf.changed > 0)
+      .filter((pf) => (pf.unchecked > 0 || pf.changed > 0) && pf.flow.id !== displayFlow?.id)
       .sort((a, b) => b.urgency - a.urgency)
       .slice(0, 3);
   })();
@@ -523,7 +523,7 @@ function SidebarInner(props: {
         )}
 
         {/* ── PRIORITY FLOWS — what needs attention ── */}
-        {priorityFlows.length > 0 && !displayFlow && (
+        {priorityFlows.length > 0 && (
           <div className="fq-priority-flows">
             {priorityFlows.map((pf) => (
               <div
