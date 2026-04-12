@@ -441,6 +441,7 @@ function SidebarInner(props: {
   } = props;
 
   const [expandedNotes, setExpandedNotes] = useState<string | null>(null);
+  const [expandedContext, setExpandedContext] = useState<string | null>(null);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [issueInputFocused, setIssueInputFocused] = useState(false);
   const [obsScope, setObsScope] = useState<"page" | "all">("page");
@@ -772,15 +773,21 @@ function SidebarInner(props: {
                     {staleInFlow > 0 && <span style={{ color: "var(--fq-warn)", marginLeft: 4 }}>· {staleInFlow} stale</span>}
                   </span>
                 </div>
-                {nextStep && nextUnvisitedIdx !== activeStepIdx && (
-                  <div className="fq-progress-prompt-next">
-                    <span className="fq-progress-prompt-label">Next</span>
-                    <span className="fq-progress-prompt-text">{nextStep.instructions}</span>
-                    {nextStep.urlPattern && nextStep.urlPattern !== "/" && (
-                      <code className="fq-progress-prompt-url">{nextStep.urlPattern}</code>
-                    )}
-                  </div>
-                )}
+                {nextStep && nextUnvisitedIdx !== activeStepIdx && (() => {
+                  const url = nextStep.urlPattern && nextStep.urlPattern !== "/" ? nextStep.urlPattern : null;
+                  const navigable = !!url;
+                  return (
+                    <div
+                      className={`fq-progress-prompt-next ${navigable ? "fq-progress-prompt-next-link" : ""}`}
+                      onClick={navigable ? () => { window.location.href = url!; } : undefined}
+                      title={navigable ? `Go to ${url}` : undefined}
+                    >
+                      <span className="fq-progress-prompt-label">Next</span>
+                      <span className="fq-progress-prompt-text">{nextStep.instructions}</span>
+                      {navigable && <span className="fq-progress-prompt-arrow">→</span>}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
@@ -796,7 +803,8 @@ function SidebarInner(props: {
                 const isDone = !!visited[sid];
                 const isStale = stale.has(sid);
                 const isNext = idx === nextUnvisitedIdx && !isActive;
-                const showContext = isActive || isStale;
+                const hasContext = !!(st.success_looks_like || st.failure_signal || st.assumption_dependency);
+                const contextOpen = expandedContext === sid || isActive;
                 const hasNotes = !!(notes[sid]?.trim());
                 const notesOpen = expandedNotes === sid;
 
@@ -821,11 +829,15 @@ function SidebarInner(props: {
                     </div>
 
                     <div className="fq-check-content">
-                      <div className={`fq-check-instruction ${isDone && !isActive ? "fq-check-instruction-done" : ""}`}>
+                      <div
+                        className={`fq-check-instruction ${isDone && !isActive ? "fq-check-instruction-done" : ""} ${hasContext ? "fq-check-instruction-clickable" : ""}`}
+                        onClick={hasContext ? () => setExpandedContext(expandedContext === sid ? null : sid) : undefined}
+                      >
                         <span style={{ color: "var(--fq-muted)", marginRight: 4 }}>{idx + 1}.</span>
                         {st.instructions ?? sid}
                         {isActive && <span style={{ color: "var(--fq-here)", marginLeft: 6, fontSize: 11 }}>&#9679; You're here</span>}
                         {isStale && !isActive && <span className="fq-stale-badge">&#8635; Changed</span>}
+                        {hasContext && !contextOpen && <span className="fq-context-hint">ⓘ</span>}
                         {(() => {
                           const eng = flowSession?.stepEngagement[sid];
                           const label = eng ? dwellLabel(eng.dwellMs) : "";
@@ -833,27 +845,19 @@ function SidebarInner(props: {
                         })()}
                       </div>
 
-                      {showContext && (st.success_looks_like || st.failure_signal || st.assumption_dependency) && (() => {
-                        const trunc = (s: string, n = 70) => s.length > n ? s.slice(0, n - 1) + "..." : s;
-                        return (
-                        <details className="fq-check-context" style={{ cursor: "pointer" }}>
-                          <summary style={{ listStyle: "none", fontSize: 12 }}>
-                            {st.success_looks_like && <span><span style={{ color: "var(--fq-ok)" }}>&#10003;</span> {trunc(st.success_looks_like)} </span>}
-                          </summary>
-                          <div style={{ marginTop: 4, fontSize: 12 }}>
-                            {st.success_looks_like && (
-                              <div style={{ marginBottom: 2 }}><span style={{ color: "var(--fq-ok)" }}>&#10003;</span> {st.success_looks_like}</div>
-                            )}
-                            {st.failure_signal && (
-                              <div style={{ marginBottom: 2 }}><span style={{ color: "var(--fq-danger)" }}>&#10007;</span> {st.failure_signal}</div>
-                            )}
-                            {st.assumption_dependency && (
-                              <div><span style={{ color: "var(--fq-warn)" }}>?</span> {st.assumption_dependency}</div>
-                            )}
-                          </div>
-                        </details>
-                        );
-                      })()}
+                      {contextOpen && hasContext && (
+                        <div className="fq-check-context">
+                          {st.success_looks_like && (
+                            <div className="fq-context-line"><span style={{ color: "var(--fq-ok)" }}>✓</span> {st.success_looks_like}</div>
+                          )}
+                          {st.failure_signal && (
+                            <div className="fq-context-line"><span style={{ color: "var(--fq-danger)" }}>✗</span> {st.failure_signal}</div>
+                          )}
+                          {st.assumption_dependency && (
+                            <div className="fq-context-line"><span style={{ color: "var(--fq-warn)" }}>?</span> {st.assumption_dependency}</div>
+                          )}
+                        </div>
+                      )}
 
                       <div className="fq-inline-note-area">
                         {notesOpen ? (

@@ -173,11 +173,20 @@ export const SIDEBAR_CSS = `
 .fq-check-instruction { font-size: 13px; line-height: 1.3; }
 .fq-check-instruction-done { opacity: 0.4; }
 .fq-check-meta { font-size: 11px; color: var(--fq-muted); margin-top: 2px; }
+.fq-check-instruction-clickable { cursor: pointer; }
+.fq-check-instruction-clickable:hover { color: var(--fq-accent); }
+.fq-context-hint {
+  font-size: 10px; color: var(--fq-muted); margin-left: 4px;
+  opacity: 0; transition: opacity 0.15s;
+}
+.fq-check-step:hover .fq-context-hint { opacity: 0.6; }
 .fq-check-context {
   font-size: 12px; margin-top: 4px; padding: 6px 8px;
   background: rgba(255,255,255,0.02); border-radius: var(--fq-radius-sm);
   border: 1px solid var(--fq-border-subtle);
+  display: flex; flex-direction: column; gap: 3px;
 }
+.fq-context-line { line-height: 1.35; }
 
 /* ── Progress bar ── */
 .fq-progress-bar { height: 4px; border-radius: 2px; background: var(--fq-border); overflow: hidden; }
@@ -194,8 +203,8 @@ export const SIDEBAR_CSS = `
   display: flex; align-items: center; gap: 8px;
 }
 .fq-progress-prompt-intent {
-  font-size: 12px; color: var(--fq-muted); line-height: 1.4;
-  margin-bottom: 8px;
+  font-size: 11px; color: var(--fq-muted); line-height: 1.35;
+  margin-bottom: 8px; font-style: italic; opacity: 0.8;
 }
 .fq-progress-prompt-count {
   font-size: 11px; color: var(--fq-muted); white-space: nowrap;
@@ -212,7 +221,14 @@ export const SIDEBAR_CSS = `
   text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0;
 }
 .fq-progress-prompt-text { flex: 1; min-width: 0; }
-.fq-progress-prompt-url { font-size: 10px; color: var(--fq-muted); flex-shrink: 0; }
+.fq-progress-prompt-next-link { cursor: pointer; border-radius: var(--fq-radius-sm); }
+.fq-progress-prompt-next-link:hover { background: rgba(255,107,94,0.06); }
+.fq-progress-prompt-next-link:hover .fq-progress-prompt-text { color: var(--fq-accent); }
+.fq-progress-prompt-arrow {
+  color: var(--fq-accent); font-size: 14px; flex-shrink: 0;
+  opacity: 0; transition: opacity 0.15s;
+}
+.fq-progress-prompt-next-link:hover .fq-progress-prompt-arrow { opacity: 1; }
 
 /* ── Flow header ── */
 .fq-flow-header-compact { margin-bottom: 8px; }
@@ -352,10 +368,10 @@ export const SIDEBAR_CSS = `
 /* ── Flow dropdown ── */
 .fq-flow-dropdown {
   flex: 1; min-width: 0;
-  font-size: 12px; padding: 5px 8px;
+  font-size: 13px; padding: 6px 10px;
   background: var(--fq-bg); border: 1px solid var(--fq-border);
   color: var(--fq-text); border-radius: var(--fq-radius-sm);
-  cursor: pointer; appearance: none; font-weight: 500;
+  cursor: pointer; appearance: none; font-weight: 600;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238A87A0'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 8px center;
