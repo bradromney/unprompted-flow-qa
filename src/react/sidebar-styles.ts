@@ -188,47 +188,54 @@ export const SIDEBAR_CSS = `
 }
 .fq-context-line { line-height: 1.35; }
 
-/* ── Progress bar ── */
-.fq-progress-bar { height: 4px; border-radius: 2px; background: var(--fq-border); overflow: hidden; }
-.fq-progress-fill { height: 100%; background: linear-gradient(90deg, var(--fq-ok), #6EE7B7); border-radius: 2px; transition: width 0.3s ease; box-shadow: 0 0 8px rgba(74,222,128,0.4), 0 0 2px rgba(74,222,128,0.6); }
-
-/* ── Progress + next step (merged) ── */
-.fq-progress-prompt {
-  padding: 10px 12px; border-radius: var(--fq-radius);
+/* ── Slim flow card ── */
+.fq-flow-card {
+  padding: 8px 10px; border-radius: var(--fq-radius);
   border: 1px solid var(--fq-border);
   background: var(--fq-panel);
   box-shadow: var(--fq-shadow-sm);
+  display: flex; flex-direction: column; gap: 0;
 }
-.fq-progress-prompt-top {
-  display: flex; align-items: center; gap: 8px;
+.fq-flow-card-top {
+  display: flex; align-items: center; gap: 6px;
 }
-.fq-progress-prompt-intent {
-  font-size: 11px; color: var(--fq-muted); line-height: 1.35;
-  margin-bottom: 8px; font-style: italic; opacity: 0.8;
-}
-.fq-progress-prompt-count {
+.fq-flow-card-count {
   font-size: 11px; color: var(--fq-muted); white-space: nowrap;
-  font-variant-numeric: tabular-nums; font-weight: 600;
+  font-variant-numeric: tabular-nums; font-weight: 600; flex-shrink: 0;
 }
-.fq-progress-prompt-next {
+.fq-flow-card-info {
+  appearance: none; background: none; border: 1px solid transparent;
+  color: var(--fq-muted); cursor: pointer; padding: 2px 4px;
+  border-radius: var(--fq-radius-sm); transition: all 0.15s;
+  font-size: 13px; line-height: 1; flex-shrink: 0;
+}
+.fq-flow-card-info:hover { color: var(--fq-text); border-color: var(--fq-border); }
+.fq-flow-card-info-active { color: var(--fq-here); }
+.fq-flow-card-intent {
+  font-size: 11px; color: var(--fq-muted); line-height: 1.35;
+  margin-top: 6px; padding-top: 6px;
+  border-top: 1px solid var(--fq-border-subtle);
+  font-style: italic; opacity: 0.8;
+}
+.fq-flow-card-next {
   display: flex; align-items: center; gap: 8px;
-  margin-top: 8px; padding-top: 8px;
+  margin-top: 6px; padding-top: 6px;
   border-top: 1px solid var(--fq-border-subtle);
   font-size: 12px;
 }
-.fq-progress-prompt-label {
+.fq-flow-card-next-label {
   color: var(--fq-accent); font-weight: 700; font-size: 10px;
   text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0;
 }
-.fq-progress-prompt-text { flex: 1; min-width: 0; }
-.fq-progress-prompt-next-link { cursor: pointer; border-radius: var(--fq-radius-sm); }
-.fq-progress-prompt-next-link:hover { background: rgba(255,107,94,0.06); }
-.fq-progress-prompt-next-link:hover .fq-progress-prompt-text { color: var(--fq-accent); }
-.fq-progress-prompt-arrow {
+.fq-flow-card-next-text { flex: 1; min-width: 0; }
+.fq-flow-card-next-link { cursor: pointer; border-radius: var(--fq-radius-sm); padding: 2px 4px; margin: -2px -4px; }
+.fq-flow-card-next-link:hover { background: rgba(255,107,94,0.06); }
+.fq-flow-card-next-link:hover .fq-flow-card-next-text { color: var(--fq-accent); }
+.fq-flow-card-next-arrow {
   color: var(--fq-accent); font-size: 14px; flex-shrink: 0;
   opacity: 0; transition: opacity 0.15s;
 }
-.fq-progress-prompt-next-link:hover .fq-progress-prompt-arrow { opacity: 1; }
+.fq-flow-card-next-link:hover .fq-flow-card-next-arrow { opacity: 1; }
 
 /* ── Flow header ── */
 .fq-flow-header-compact { margin-bottom: 8px; }
@@ -238,12 +245,12 @@ export const SIDEBAR_CSS = `
 .fq-notes-toggle {
   font-size: 11px; color: var(--fq-muted); cursor: pointer;
   background: none; border: none; padding: 2px 0;
-  opacity: 0; transition: opacity 0.15s;
+  opacity: 0.5; transition: opacity 0.15s;
 }
 .fq-check-step:hover .fq-notes-toggle,
 .fq-check-step-active .fq-notes-toggle,
 .fq-notes-toggle-has-note { opacity: 1; }
-.fq-notes-toggle:hover { color: var(--fq-accent); }
+.fq-notes-toggle:hover { color: var(--fq-accent); opacity: 1; }
 
 /* ── Form inputs ── */
 .fq-input, .fq-textarea, .fq-select {
@@ -355,14 +362,9 @@ export const SIDEBAR_CSS = `
 .fq-segment-dropdown:focus { border-color: var(--fq-accent); outline: none; }
 .fq-segment-dropdown:hover { border-color: var(--fq-muted); color: var(--fq-text); }
 
-/* ── Flow selector (inside progress card) ── */
+/* ── Flow selector (standalone, when no flow active) ── */
 .fq-flow-selector {
   display: flex; align-items: center; gap: 8px;
-  margin-bottom: 8px;
-}
-.fq-flow-selector-hint {
-  font-size: 10px; color: var(--fq-muted); white-space: nowrap;
-  font-weight: 500; opacity: 0.7; flex-shrink: 0;
 }
 
 /* ── Flow dropdown ── */

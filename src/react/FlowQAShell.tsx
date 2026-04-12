@@ -445,6 +445,7 @@ function SidebarInner(props: {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [issueInputFocused, setIssueInputFocused] = useState(false);
   const [obsScope, setObsScope] = useState<"page" | "all">("page");
+  const [showIntent, setShowIntent] = useState(false);
 
   if (!bundle) {
     return (
@@ -739,9 +740,9 @@ function SidebarInner(props: {
                 </span>
               </div>
             ) : (
-              <div className="fq-progress-prompt">
-                {/* Flow selector — inside the card */}
-                <div className="fq-flow-selector">
+              <div className="fq-flow-card">
+                {/* Row 1: flow dropdown + count + intent toggle */}
+                <div className="fq-flow-card-top">
                   <select
                     className="fq-select fq-flow-dropdown"
                     value={activeFlowId ?? ""}
@@ -754,7 +755,7 @@ function SidebarInner(props: {
                       const sc = f.steps.filter((s) => stale.has(s)).length;
                       const hot = hotFlows.some((h) => h.id === f.id);
                       const here = flowsHere.some((fh) => fh.id === f.id);
-                      const tag = sc ? ` · ${sc} stale` : hot ? " · changed" : here ? " ·" : "";
+                      const tag = sc ? ` [${sc} stale]` : hot ? " [changed]" : here ? " [here]" : "";
                       return (
                         <option key={f.id} value={f.id}>
                           {f.title}{tag}
@@ -762,36 +763,36 @@ function SidebarInner(props: {
                       );
                     })}
                   </select>
-                  {flowsHere.length > 1 && (
-                    <span className="fq-flow-selector-hint">
-                      +{flowsHere.length - 1} on this page
-                    </span>
+                  <span className="fq-flow-card-count">
+                    {visitedCount}/{totalSteps}
+                    {staleInFlow > 0 && <span style={{ color: "var(--fq-warn)" }}> · {staleInFlow}⟳</span>}
+                  </span>
+                  {displayFlow.strategic_intent && (
+                    <button
+                      type="button"
+                      className={`fq-flow-card-info ${showIntent ? "fq-flow-card-info-active" : ""}`}
+                      onClick={() => setShowIntent(!showIntent)}
+                      title="Show flow intent"
+                    >ⓘ</button>
                   )}
                 </div>
-                {displayFlow.strategic_intent && (
-                  <div className="fq-progress-prompt-intent">{displayFlow.strategic_intent}</div>
+                {/* Intent — collapsed by default */}
+                {showIntent && displayFlow.strategic_intent && (
+                  <div className="fq-flow-card-intent">{displayFlow.strategic_intent}</div>
                 )}
-                <div className="fq-progress-prompt-top">
-                  <div className="fq-progress-bar" style={{ flex: 1 }}>
-                    <div className="fq-progress-fill" style={{ width: `${pct}%` }} />
-                  </div>
-                  <span className="fq-progress-prompt-count">
-                    {visitedCount}/{totalSteps}
-                    {staleInFlow > 0 && <span style={{ color: "var(--fq-warn)", marginLeft: 4 }}>· {staleInFlow} stale</span>}
-                  </span>
-                </div>
+                {/* NEXT — the action prompt */}
                 {nextStep && nextUnvisitedIdx !== activeStepIdx && (() => {
                   const url = nextStep.urlPattern && nextStep.urlPattern !== "/" ? nextStep.urlPattern : null;
                   const navigable = !!url;
                   return (
                     <div
-                      className={`fq-progress-prompt-next ${navigable ? "fq-progress-prompt-next-link" : ""}`}
+                      className={`fq-flow-card-next ${navigable ? "fq-flow-card-next-link" : ""}`}
                       onClick={navigable ? () => { window.location.href = url!; } : undefined}
                       title={navigable ? `Go to ${url}` : undefined}
                     >
-                      <span className="fq-progress-prompt-label">Next</span>
-                      <span className="fq-progress-prompt-text">{nextStep.instructions}</span>
-                      {navigable && <span className="fq-progress-prompt-arrow">→</span>}
+                      <span className="fq-flow-card-next-label">Next</span>
+                      <span className="fq-flow-card-next-text">{nextStep.instructions}</span>
+                      {navigable && <span className="fq-flow-card-next-arrow">→</span>}
                     </div>
                   );
                 })()}
@@ -811,7 +812,8 @@ function SidebarInner(props: {
                 const isStale = stale.has(sid);
                 const isNext = idx === nextUnvisitedIdx && !isActive;
                 const hasContext = !!(st.success_looks_like || st.failure_signal || st.assumption_dependency);
-                const contextOpen = expandedContext === sid || isActive;
+                // Active step auto-opens, but user can explicitly close it
+                const contextOpen = expandedContext === sid || (isActive && expandedContext !== `closed:${sid}`);
                 const hasNotes = !!(notes[sid]?.trim());
                 const notesOpen = expandedNotes === sid;
 
@@ -838,7 +840,14 @@ function SidebarInner(props: {
                     <div className="fq-check-content">
                       <div
                         className={`fq-check-instruction ${isDone && !isActive ? "fq-check-instruction-done" : ""} ${hasContext ? "fq-check-instruction-clickable" : ""}`}
-                        onClick={hasContext ? () => setExpandedContext(expandedContext === sid ? null : sid) : undefined}
+                        onClick={hasContext ? () => {
+                          if (contextOpen) {
+                            // Closing — for active step, mark explicitly closed
+                            setExpandedContext(isActive ? `closed:${sid}` : null);
+                          } else {
+                            setExpandedContext(sid);
+                          }
+                        } : undefined}
                       >
                         <span style={{ color: "var(--fq-muted)", marginRight: 4 }}>{idx + 1}.</span>
                         {st.instructions ?? sid}
@@ -958,9 +967,15 @@ function SidebarInner(props: {
               className="fq-issue-inline-input"
               placeholder="Something off? Log an issue…"
               value={issueDraft.notes}
-              rows={issueInputFocused ? 3 : 1}
+              rows={1}
               onFocus={() => setIssueInputFocused(true)}
-              onChange={(e) => setIssueDraft((d) => ({ ...d, notes: e.target.value }))}
+              onChange={(e) => {
+                setIssueDraft((d) => ({ ...d, notes: e.target.value }));
+                // Auto-size
+                const el = e.target;
+                el.style.height = "auto";
+                el.style.height = el.scrollHeight + "px";
+              }}
             />
             {issueInputFocused && (
               <div className="fq-issue-inline-fields">
