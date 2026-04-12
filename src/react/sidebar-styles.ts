@@ -1,5 +1,5 @@
 export const SIDEBAR_CSS = `
-:root {
+:host {
   /* ── Identity: warm coral accent on deep neutral dark ── */
   --fq-bg: #111015;
   --fq-panel: #1A1921;
