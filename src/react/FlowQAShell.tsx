@@ -713,18 +713,11 @@ function SidebarInner(props: {
             {/* Flow header */}
             <div className="fq-flow-header-compact">
               <h3>{displayFlow.title}</h3>
-              {displayFlow.strategic_intent && (() => {
-                const si = displayFlow.strategic_intent;
-                const short = si.length > 80 ? si.slice(0, 77) + "..." : si;
-                return si.length > 80 ? (
-                  <details style={{ marginBottom: 4 }}>
-                    <summary className="fq-muted" style={{ cursor: "pointer", listStyle: "none" }}>{short}</summary>
-                    <div className="fq-muted" style={{ marginTop: 2 }}>{si}</div>
-                  </details>
-                ) : (
-                  <div className="fq-muted" style={{ marginBottom: 4 }}>{si}</div>
-                );
-              })()}
+              {displayFlow.strategic_intent && (
+                <div className="fq-muted" style={{ marginBottom: 4 }}>
+                  {displayFlow.strategic_intent}
+                </div>
+              )}
               {displayFlow.eval_dimension && (
                 <div className="fq-row" style={{ marginBottom: 4 }}>
                   <span className="fq-chip">{displayFlow.eval_dimension}</span>
