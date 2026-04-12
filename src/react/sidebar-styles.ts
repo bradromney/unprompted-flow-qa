@@ -180,7 +180,7 @@ export const SIDEBAR_CSS = `
 }
 
 /* ── Progress bar ── */
-.fq-progress-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.06); overflow: hidden; }
+.fq-progress-bar { height: 4px; border-radius: 2px; background: var(--fq-border); overflow: hidden; }
 .fq-progress-fill { height: 100%; background: linear-gradient(90deg, var(--fq-ok), #6EE7B7); border-radius: 2px; transition: width 0.3s ease; box-shadow: 0 0 8px rgba(74,222,128,0.4), 0 0 2px rgba(74,222,128,0.6); }
 
 /* ── Next step prompt ── */
@@ -307,13 +307,6 @@ export const SIDEBAR_CSS = `
 /* ── Stale badge ── */
 .fq-stale-badge { font-size: 10px; color: var(--fq-warn); margin-left: 6px; }
 
-/* ── Collapsible sections ── */
-.fq-collapse summary {
-  cursor: pointer; color: var(--fq-muted); font-weight: 500; font-size: 12px;
-  transition: color 0.15s;
-}
-.fq-collapse summary:hover { color: var(--fq-text); }
-.fq-collapse .fq-card { margin-top: 8px; }
 
 /* ── Flow dropdown ── */
 .fq-flow-dropdown {
@@ -433,6 +426,80 @@ export const SIDEBAR_CSS = `
   color: var(--fq-ok); text-align: center; font-weight: 500;
 }
 
+/* ── Collapsible sections — styled disclosure ── */
+.fq-collapse { border-radius: var(--fq-radius-sm); }
+.fq-collapse summary {
+  cursor: pointer; color: var(--fq-muted); font-weight: 600; font-size: 12px;
+  transition: color 0.15s;
+  list-style: none;
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 0;
+}
+.fq-collapse summary::-webkit-details-marker { display: none; }
+.fq-collapse summary::before {
+  content: '›';
+  display: inline-block; font-size: 14px; font-weight: 700;
+  transition: transform 0.2s;
+  color: var(--fq-accent);
+  width: 12px; text-align: center; flex-shrink: 0;
+}
+.fq-collapse[open] > summary::before { transform: rotate(90deg); }
+.fq-collapse summary:hover { color: var(--fq-text); }
+.fq-collapse .fq-card { margin-top: 8px; }
+
+/* ── Observation insight cards ── */
+.fq-observation-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.fq-observation-card {
+  padding: 10px 12px; border-radius: var(--fq-radius-sm);
+  background: var(--fq-panel); border: 1px solid var(--fq-border);
+  border-left: 3px solid var(--fq-here);
+  font-size: 12px; line-height: 1.5; color: var(--fq-text);
+  box-shadow: var(--fq-shadow-sm);
+  transition: all 0.15s;
+}
+.fq-observation-card:hover { border-color: var(--fq-here); background: rgba(129,140,248,0.04); }
+.fq-observation-card-type {
+  display: inline-flex; align-items: center;
+  padding: 1px 7px; border-radius: 999px;
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  background: rgba(129,140,248,0.12); color: var(--fq-here);
+  margin-bottom: 6px;
+}
+.fq-observation-card-text { color: var(--fq-text); }
+.fq-observation-card-assumption {
+  margin-top: 6px; padding-top: 6px;
+  border-top: 1px solid var(--fq-border-subtle);
+  font-size: 11px; color: var(--fq-muted); font-style: italic;
+}
+/* Compact observation teasers (inline in flow, above steps) */
+.fq-observation-teaser {
+  padding: 8px 10px; border-radius: var(--fq-radius-sm);
+  background: rgba(129,140,248,0.04); border: 1px solid rgba(129,140,248,0.12);
+  font-size: 12px; line-height: 1.4; color: var(--fq-muted);
+  border-left: 2px solid rgba(129,140,248,0.3);
+  transition: all 0.15s;
+}
+.fq-observation-teaser:hover { color: var(--fq-text); border-color: rgba(129,140,248,0.3); background: rgba(129,140,248,0.06); }
+
+/* ── Log issue action section ── */
+.fq-collapse-action > summary {
+  color: var(--fq-accent);
+  padding: 8px 12px;
+  background: var(--fq-accent-soft);
+  border: 1px solid rgba(255,107,94,0.15);
+  border-radius: var(--fq-radius-sm);
+  transition: all 0.15s;
+}
+.fq-collapse-action > summary::before { color: var(--fq-accent); }
+.fq-collapse-action > summary:hover {
+  background: rgba(255,107,94,0.15);
+  border-color: rgba(255,107,94,0.3);
+}
+.fq-collapse-action[open] > summary {
+  border-radius: var(--fq-radius-sm) var(--fq-radius-sm) 0 0;
+  border-bottom-color: transparent;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    PRIORITY FLOW LIST
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -477,7 +544,7 @@ export const SIDEBAR_CSS = `
 }
 .fq-priority-flow-bar {
   height: 4px; border-radius: 2px;
-  background: rgba(255,255,255,0.06);
+  background: var(--fq-border);
   overflow: hidden; margin-bottom: 10px;
 }
 .fq-priority-flow-fill {

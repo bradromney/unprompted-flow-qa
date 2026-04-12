@@ -661,16 +661,12 @@ function SidebarInner(props: {
             {pageObservations.length > 0 && (
               <details className="fq-collapse" style={{ marginTop: 4 }}>
                 <summary>{pageObservations.length} observation{pageObservations.length !== 1 ? "s" : ""} on this page</summary>
-                <div style={{ marginTop: 6 }}>
-                  {pageObservations.slice(0, 3).map((o, i) => {
-                    const text = o.observation;
-                    const short = text.length > 80 ? text.slice(0, 77) + "..." : text;
-                    return (
-                      <div key={i} style={{ fontSize: 12, marginBottom: 4, color: "var(--fq-muted)" }}>
-                        {short}
-                      </div>
-                    );
-                  })}
+                <div className="fq-observation-list">
+                  {pageObservations.slice(0, 3).map((o, i) => (
+                    <div key={i} className="fq-observation-teaser">
+                      {o.observation}
+                    </div>
+                  ))}
                 </div>
               </details>
             )}
@@ -832,7 +828,7 @@ function SidebarInner(props: {
 
         {/* ── LOG ISSUE ── */}
         {displayFlow && (
-          <details className="fq-collapse">
+          <details className="fq-collapse fq-collapse-action">
             <summary>Log an issue</summary>
             <div style={{ marginTop: 8 }}>
               {currentStepForIssue?.assumption_dependency && (
@@ -943,10 +939,16 @@ function SidebarInner(props: {
             <summary>
               {otherObservations.length} observation{otherObservations.length !== 1 ? "s" : ""}
             </summary>
-            <div className="fq-list" style={{ marginTop: 8 }}>
+            <div className="fq-observation-list">
               {otherObservations.map((o, i) => (
-                <div key={i} style={{ marginBottom: 6, fontSize: 12, color: "var(--fq-muted)" }}>
-                  {o.observation}
+                <div key={i} className="fq-observation-card">
+                  <div className="fq-observation-card-type">{o.type}</div>
+                  <div className="fq-observation-card-text">{o.observation}</div>
+                  {o.suggested_assumption && (
+                    <div className="fq-observation-card-assumption">
+                      Assumption: {o.suggested_assumption}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
