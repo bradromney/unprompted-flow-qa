@@ -193,6 +193,10 @@ export const SIDEBAR_CSS = `
 .fq-progress-prompt-top {
   display: flex; align-items: center; gap: 8px;
 }
+.fq-progress-prompt-intent {
+  font-size: 12px; color: var(--fq-muted); line-height: 1.4;
+  margin-bottom: 8px;
+}
 .fq-progress-prompt-count {
   font-size: 11px; color: var(--fq-muted); white-space: nowrap;
   font-variant-numeric: tabular-nums; font-weight: 600;

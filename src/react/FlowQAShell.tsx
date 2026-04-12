@@ -710,22 +710,7 @@ function SidebarInner(props: {
 
           return (
           <>
-            {/* Flow header */}
-            <div className="fq-flow-header-compact">
-              <h3>{displayFlow.title}</h3>
-              {displayFlow.strategic_intent && (
-                <div className="fq-muted" style={{ marginBottom: 4 }}>
-                  {displayFlow.strategic_intent}
-                </div>
-              )}
-              {displayFlow.eval_dimension && (
-                <div className="fq-row" style={{ marginBottom: 4 }}>
-                  <span className="fq-chip">{displayFlow.eval_dimension}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Progress + next step — merged */}
+            {/* Flow context — title, intent, progress, next step in one card */}
             {flowSession?.completed && flowSession.flowId === displayFlow.id ? (
               <div className="fq-session-complete">
                 <span className="fq-complete-icon">✓</span>
@@ -739,6 +724,9 @@ function SidebarInner(props: {
               </div>
             ) : (
               <div className="fq-progress-prompt">
+                {displayFlow.strategic_intent && (
+                  <div className="fq-progress-prompt-intent">{displayFlow.strategic_intent}</div>
+                )}
                 <div className="fq-progress-prompt-top">
                   <div className="fq-progress-bar" style={{ flex: 1 }}>
                     <div className="fq-progress-fill" style={{ width: `${pct}%` }} />
