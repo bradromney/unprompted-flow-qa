@@ -11,6 +11,7 @@ import type {
   IssueType,
   MountFlowQAOptions,
   Step,
+  StepAssessment,
   StrategicObservation,
   FlowBundle,
   GitContextFile,
@@ -41,9 +42,20 @@ import {
   setIssues,
   setStepNotes,
   setVisitedSteps,
+  getStepAssessments,
+  setStepAssessments,
   type FacadeMode,
 } from "./storage";
-import { exportJson, exportMarkdown, buildSessionPrompt } from "./export-report";
+import {
+  exportJson,
+  exportMarkdown,
+  buildSessionPrompt,
+  buildFixPrompt,
+  buildAnalysisPrompt,
+  buildFullExport,
+  buildRawNotes,
+  type SessionContext,
+} from "./export-report";
 import {
   computeStrategyState,
   type StrategyState,
@@ -108,6 +120,8 @@ export interface FlowQAStoreOptions {
   gitContextPath?: string;
   /** Ref to the app viewport DOM element — set after mount */
   getAppViewportEl: () => HTMLElement | null;
+  /** Navigation callback — falls back to window.location.href */
+  navigate?: (path: string) => void;
 }
 
 /* ─── Listener ─────────────────────────────────────────────────────────── */
@@ -126,7 +140,8 @@ export class FlowQAStore {
   workspace: LoadedWorkspace | null = null;
   pathname = "";
   viewport: string = "full";
-  activeFlowId: string | null = null;
+  expandedFlowIds: Set<string> = new Set();
+  stepAssessments: Record<string, StepAssessment> = {};
   copied = false;
   visited: Record<string, number> = {};
   notes: Record<string, string> = {};
@@ -143,6 +158,7 @@ export class FlowQAStore {
   );
 
   // ── Subscriptions ──
+  private navigateFn?: (path: string) => void;
   private listeners = new Set<StoreListener>();
   private disposed = false;
   private cleanupFns: (() => void)[] = [];
@@ -152,12 +168,14 @@ export class FlowQAStore {
 
   constructor(opts: FlowQAStoreOptions) {
     this.opts = opts;
+    this.navigateFn = opts.navigate;
     this.pathname = opts.getLocation().pathname;
     this.visited = getVisitedSteps();
     this.notes = getStepNotes();
     this.issues = getIssues();
     this.facadeMode = getFacadeMode();
     this.sessionState = loadSessionState();
+    this.stepAssessments = getStepAssessments();
 
     if (opts.enabled !== false) {
       this.init();
@@ -319,6 +337,12 @@ export class FlowQAStore {
     });
   }
 
+  /** Derived: first expanded flow ID, for session tracker compat */
+  get activeFlowId(): string | null {
+    const first = this.expandedFlowIds.values().next();
+    return first.done ? null : first.value;
+  }
+
   get activeFlow(): Flow | null {
     return this.bundle?.flows.find((f) => f.id === this.activeFlowId) ?? null;
   }
@@ -376,6 +400,41 @@ export class FlowQAStore {
     );
   }
 
+  /** All flows with steps matching current page, sorted: stale → hot → alpha */
+  get flowsOnPage(): Flow[] {
+    if (!this.bundle) return [];
+    const segFlows = this.selectedSegment
+      ? this.bundle.flows.filter((f) => f.segment === this.selectedSegment)
+      : this.bundle.flows;
+    const onPage = segFlows.filter((f) =>
+      f.steps.some((sid) => this.matchingStepIds.includes(sid))
+    );
+    const hasStale = (f: Flow) => f.steps.some((sid) => this.stale.has(sid));
+    const isHot = (f: Flow) => this.hotFlows.some((h) => h.id === f.id);
+    return [...onPage].sort((a, b) => {
+      const as = hasStale(a), bs = hasStale(b);
+      if (as !== bs) return as ? -1 : 1;
+      const ah = isHot(a), bh = isHot(b);
+      if (ah !== bh) return ah ? -1 : 1;
+      return a.title.localeCompare(b.title);
+    });
+  }
+
+  /** Notes grouped by step urlPattern */
+  get notesByRoute(): Record<string, { stepId: string; note: string }[]> {
+    if (!this.bundle) return {};
+    const out: Record<string, { stepId: string; note: string }[]> = {};
+    for (const [stepId, note] of Object.entries(this.notes)) {
+      if (!note.trim()) continue;
+      const step: Step | undefined = this.bundle.steps[stepId];
+      if (!step) continue;
+      const route = step.urlPattern;
+      if (!out[route]) out[route] = [];
+      out[route].push({ stepId, note });
+    }
+    return out;
+  }
+
   get flowSession(): FlowSession | null {
     return this.sessionState.activeSession;
   }
@@ -390,31 +449,44 @@ export class FlowQAStore {
     if (this.open === v) return;
     this.open = v;
 
-    // Session resume: auto-select flow from persisted session on open
-    if (v && !this.activeFlowId) {
+    // Session resume: auto-expand flow from persisted session on open
+    if (v && this.expandedFlowIds.size === 0) {
       const saved = loadSessionState();
       if (saved.activeSession && !saved.activeSession.completed) {
-        this.activeFlowId = saved.activeSession.flowId;
+        this.expandedFlowIds = new Set([saved.activeSession.flowId]);
       }
     }
 
-    // Manage dwell timer
     this.manageDwellTimer();
     this.notify();
   }
 
-  setActiveFlowId(id: string | null) {
-    if (this.activeFlowId === id) return;
-    this.activeFlowId = id;
-    this.bus.emit("flow-selected", id);
-
-    // Start/resume session
-    if (id) {
-      this.sessionState = startOrResumeSession(this.sessionState, id);
+  toggleFlowExpanded(flowId: string) {
+    const next = new Set(this.expandedFlowIds);
+    if (next.has(flowId)) {
+      next.delete(flowId);
+    } else {
+      next.add(flowId);
+      // Start/resume session on first expand
+      this.sessionState = startOrResumeSession(this.sessionState, flowId);
       saveSessionState(this.sessionState);
     }
-
+    this.expandedFlowIds = next;
+    this.bus.emit("flow-selected", this.activeFlowId);
     this.notify();
+  }
+
+  /** @deprecated Use toggleFlowExpanded — kept for backward compat */
+  setActiveFlowId(id: string | null) {
+    if (id) {
+      if (!this.expandedFlowIds.has(id)) {
+        this.toggleFlowExpanded(id);
+      }
+    } else {
+      this.expandedFlowIds = new Set();
+      this.bus.emit("flow-selected", null);
+      this.notify();
+    }
   }
 
   setViewport(v: string) {
@@ -467,12 +539,15 @@ export class FlowQAStore {
     this.notify();
   }
 
-  async onLogIssue() {
-    if (!this.bundle || !this.activeFlow) return;
-    const af = this.activeFlow;
+  async onLogIssue(flowId?: string) {
+    if (!this.bundle) return;
+    const fid = flowId ?? this.activeFlowId;
+    if (!fid) return;
+    const flow = this.bundle.flows.find((f) => f.id === fid);
+    if (!flow) return;
     const stepId =
-      this.matchingStepIds.find((id) => af.steps.includes(id)) ??
-      af.steps[0] ??
+      this.matchingStepIds.find((id) => flow.steps.includes(id)) ??
+      flow.steps[0] ??
       null;
     if (!stepId) return;
 
@@ -482,7 +557,7 @@ export class FlowQAStore {
       : undefined;
     const issue: Issue = {
       id: newId(),
-      flowId: af.id,
+      flowId: fid,
       stepId,
       notes: this.issueDraft.notes,
       screenshot,
@@ -525,26 +600,55 @@ export class FlowQAStore {
     alert("JSON export copied to clipboard");
   }
 
-  onCopySession() {
-    if (!this.bundle) return;
-    const prompt = buildSessionPrompt({
-      bundle: this.bundle,
+  private get sessionContext(): SessionContext {
+    return {
+      bundle: this.bundle!,
       issues: this.issues,
       observations: this.observations,
       notes: this.notes,
       visited: this.visited,
       changeGroups: this.changeGroups,
-    });
-    navigator.clipboard.writeText(prompt).then(() => {
+      stepAssessments: this.stepAssessments,
+    };
+  }
+
+  private copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text).then(() => {
       this.copied = true;
       this.notify();
-      this.bus.emit("prompt-ready", prompt);
+      this.bus.emit("prompt-ready", text);
       if (this.copiedTimer) clearTimeout(this.copiedTimer);
       this.copiedTimer = setTimeout(() => {
         this.copied = false;
         this.notify();
       }, 2000);
     });
+  }
+
+  /** Default export — backward compat */
+  onCopySession() {
+    if (!this.bundle) return;
+    this.copyToClipboard(buildFixPrompt(this.sessionContext));
+  }
+
+  onCopyFixPrompt() {
+    if (!this.bundle) return;
+    this.copyToClipboard(buildFixPrompt(this.sessionContext));
+  }
+
+  onCopyAnalysis() {
+    if (!this.bundle) return;
+    this.copyToClipboard(buildAnalysisPrompt(this.sessionContext));
+  }
+
+  onCopyFullSession() {
+    if (!this.bundle) return;
+    this.copyToClipboard(buildFullExport(this.sessionContext));
+  }
+
+  onCopyRawNotes() {
+    if (!this.bundle) return;
+    this.copyToClipboard(buildRawNotes(this.sessionContext));
   }
 
   onRecordCorrection() {
@@ -588,6 +692,24 @@ export class FlowQAStore {
     this.facadeMode = "copy_review";
     persistFacadeMode("copy_review");
     this.notify();
+  }
+
+  /* ─── Step Assessment ────────────────────────────────────────────── */
+
+  setStepAssessment(stepId: string, assessment: StepAssessment) {
+    this.stepAssessments = { ...this.stepAssessments, [stepId]: assessment };
+    setStepAssessments(this.stepAssessments);
+    this.notify();
+  }
+
+  /* ─── Navigation ───────────────────────────────────────────────── */
+
+  requestNavigation(path: string) {
+    if (this.navigateFn) {
+      this.navigateFn(path);
+    } else {
+      window.location.href = path;
+    }
   }
 
   /* ─── Provocations ──────────────────────────────────────────────── */

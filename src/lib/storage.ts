@@ -1,4 +1,4 @@
-import type { Issue, StepCorrection } from "./types";
+import type { Issue, StepAssessment, StepCorrection } from "./types";
 
 const LS_PREFIX = "flowqa:";
 const IDB_NAME = "@unprompted/flow-qa";
@@ -11,6 +11,7 @@ const META_KEYS = {
   corrections: `${LS_PREFIX}corrections`,
   facadeMode: `${LS_PREFIX}facadeMode`,
   facadeCopyMap: `${LS_PREFIX}facadeCopyMap`,
+  stepAssessments: `${LS_PREFIX}stepAssessments`,
 } as const;
 
 const SIZE_THRESHOLD = 50 * 1024;
@@ -124,6 +125,14 @@ export function getFacadeCopyMap(): Record<string, string> {
 
 export function setFacadeCopyMap(m: Record<string, string>): void {
   saveJson(META_KEYS.facadeCopyMap, m);
+}
+
+export function getStepAssessments(): Record<string, StepAssessment> {
+  return loadJson(META_KEYS.stepAssessments, {});
+}
+
+export function setStepAssessments(m: Record<string, StepAssessment>): void {
+  saveJson(META_KEYS.stepAssessments, m);
 }
 
 export { META_KEYS };

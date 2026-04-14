@@ -85,6 +85,12 @@ export interface StepCorrection {
   recordedAt: number;
 }
 
+export interface StepAssessment {
+  status: "good" | "needs-work";
+  note?: string;          // "what needs to change?" — only when needs-work
+  editedCriteria?: string; // user override of success_looks_like
+}
+
 export type ViewportPreset = "375" | "414" | "768" | "full";
 
 export interface MountFlowQAOptions {
@@ -105,4 +111,6 @@ export interface MountFlowQAOptions {
   repoRoot?: string;
   /** Optional: run grep for component pattern breadth */
   grepCommand?: "client" | "skip";
+  /** Optional: navigation callback for route links. Falls back to window.location.href */
+  navigate?: (path: string) => void;
 }

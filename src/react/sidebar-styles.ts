@@ -166,9 +166,9 @@ export const SIDEBAR_CSS = `
   cursor: pointer; transition: all 0.2s; background: transparent;
 }
 .fq-check-box:hover { border-color: var(--fq-accent); box-shadow: 0 0 0 2px var(--fq-accent-soft); }
-.fq-check-box-done { border-color: var(--fq-ok); background: var(--fq-ok); box-shadow: 0 0 8px rgba(74,222,128,0.35), 0 0 2px rgba(74,222,128,0.6); }
+.fq-check-box-done { border-color: var(--fq-muted); background: rgba(138,135,160,0.3); color: var(--fq-muted); }
 .fq-check-box-active { border-color: var(--fq-accent); box-shadow: 0 0 0 2px var(--fq-accent-soft); }
-.fq-check-box-stale { border-color: var(--fq-warn); background: rgba(240,173,78,0.15); box-shadow: 0 0 0 2px rgba(240,173,78,0.15); }
+.fq-check-box-stale { border-color: var(--fq-warn); background: rgba(240,173,78,0.1); }
 .fq-check-content { flex: 1; min-width: 0; }
 .fq-check-instruction { font-size: 13px; line-height: 1.3; }
 .fq-check-instruction-done { opacity: 0.4; }
@@ -860,4 +860,195 @@ export const SIDEBAR_CSS = `
 .fq-provocation-teaser:hover { background: rgba(255,255,255,0.03); color: var(--fq-text); }
 .fq-provocation-teaser-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fq-provocation-teaser-arrow { flex-shrink: 0; font-size: 14px; opacity: 0.4; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ROUTE BAR
+   ═══════════════════════════════════════════════════════════════════════════ */
+.fq-route-bar {
+  padding: 6px 10px;
+  background: var(--fq-panel);
+  border: 1px solid var(--fq-border);
+  border-radius: var(--fq-radius-sm);
+}
+.fq-route-path {
+  font-size: 12px; font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--fq-muted); font-weight: 500;
+}
+.fq-route-link {
+  font-size: 10px; font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--fq-here); opacity: 0.6;
+  transition: opacity 0.15s;
+  margin-left: 4px; flex-shrink: 0;
+}
+.fq-change-step:hover .fq-route-link { opacity: 1; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MULTI-FLOW CARDS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.fq-flow-cards { display: flex; flex-direction: column; gap: 6px; }
+
+/* Override the old .fq-flow-card for the new expandable card pattern */
+.fq-flow-card {
+  padding: 0; border-radius: var(--fq-radius);
+  border: 1px solid var(--fq-border);
+  background: var(--fq-panel);
+  box-shadow: var(--fq-shadow-sm);
+  display: flex; flex-direction: column; gap: 0;
+  overflow: hidden;
+}
+.fq-flow-card-hot {
+  border-left: 3px solid var(--fq-warn);
+}
+.fq-flow-card-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer; transition: background 0.15s;
+}
+.fq-flow-card-header:hover { background: rgba(255,255,255,0.02); }
+.fq-flow-card-title {
+  flex: 1; min-width: 0; font-size: 13px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fq-flow-card-progress {
+  font-size: 11px; color: var(--fq-muted); font-weight: 600;
+  font-variant-numeric: tabular-nums; flex-shrink: 0;
+}
+.fq-chip-stale {
+  border-color: var(--fq-warn); color: var(--fq-warn);
+  font-size: 10px; padding: 1px 6px;
+}
+.fq-chevron {
+  color: var(--fq-muted); font-size: 16px; font-weight: 700;
+  transition: transform 0.2s; flex-shrink: 0;
+}
+.fq-chevron-open { transform: rotate(90deg); }
+
+.fq-flow-card-body {
+  padding: 0 12px 12px;
+  border-top: 1px solid var(--fq-border-subtle);
+  display: flex; flex-direction: column; gap: 0;
+}
+.fq-flow-card-intent {
+  font-size: 11px; color: var(--fq-muted); line-height: 1.35;
+  padding: 8px 0 4px; font-style: italic; opacity: 0.8;
+}
+
+/* ── Here dot (indigo) ── */
+.fq-here-dot {
+  display: inline-block; width: 6px; height: 6px;
+  background: var(--fq-here); border-radius: 50%;
+  margin-left: 6px; vertical-align: middle;
+  box-shadow: 0 0 6px rgba(129,140,248,0.4);
+}
+
+/* ── Assessment indicator dots on step rows ── */
+.fq-assess-indicator {
+  display: inline-block; width: 6px; height: 6px;
+  border-radius: 50%; margin-left: 6px; vertical-align: middle;
+}
+.fq-assess-good { background: var(--fq-ok); }
+.fq-assess-work { background: var(--fq-warn); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STEP ASSESSMENT PANEL
+   ═══════════════════════════════════════════════════════════════════════════ */
+.fq-step-assess {
+  margin-top: 4px; padding: 8px 10px;
+  background: rgba(255,255,255,0.02); border-radius: var(--fq-radius-sm);
+  border: 1px solid var(--fq-border-subtle);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.fq-criteria-row {
+  display: flex; gap: 6px; align-items: flex-start;
+  font-size: 12px; line-height: 1.35;
+}
+.fq-criteria-text {
+  flex: 1; min-width: 0;
+  color: var(--fq-text); font-size: 12px; line-height: 1.35;
+}
+.fq-assess-row {
+  display: flex; gap: 6px; margin-top: 2px;
+}
+.fq-assess-btn {
+  appearance: none; border: 1px solid var(--fq-border);
+  background: transparent; color: var(--fq-muted);
+  border-radius: var(--fq-radius-sm);
+  padding: 4px 12px; font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.fq-assess-btn:hover { border-color: var(--fq-muted); color: var(--fq-text); }
+.fq-assess-btn-good.fq-assess-active {
+  border-color: var(--fq-ok); color: var(--fq-ok);
+  background: rgba(74,222,128,0.08);
+}
+.fq-assess-btn-work.fq-assess-active {
+  border-color: var(--fq-warn); color: var(--fq-warn);
+  background: rgba(240,173,78,0.08);
+}
+.fq-assess-note {
+  width: 100%; border: 1px solid var(--fq-border);
+  background: var(--fq-bg); color: var(--fq-text);
+  border-radius: var(--fq-radius-sm);
+  padding: 6px 8px; font-size: 11px;
+  font-family: var(--fq-font);
+  resize: vertical; min-height: 40px;
+  transition: border-color 0.15s;
+}
+.fq-assess-note:focus {
+  border-color: var(--fq-accent); outline: none;
+  box-shadow: 0 0 0 2px var(--fq-accent-soft);
+}
+.fq-assess-note::placeholder { color: var(--fq-muted); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   OTHER FLOWS (compact list)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.fq-other-flows { margin-top: 4px; }
+.fq-other-flow-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-radius: var(--fq-radius-sm);
+  cursor: pointer; transition: all 0.15s;
+  font-size: 12px;
+}
+.fq-other-flow-item:hover { background: rgba(255,255,255,0.03); }
+.fq-other-flow-title {
+  flex: 1; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+  color: var(--fq-muted);
+}
+.fq-other-flow-item:hover .fq-other-flow-title { color: var(--fq-text); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INSIGHTS SECTION (inline)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.fq-insights-section { display: flex; flex-direction: column; gap: 4px; }
+.fq-insights-section .fq-section-label {
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EXPORT FORMAT PICKER
+   ═══════════════════════════════════════════════════════════════════════════ */
+.fq-export-chevron {
+  appearance: none; border: 1px solid var(--fq-border);
+  background: var(--fq-surface); color: var(--fq-muted);
+  cursor: pointer; font-size: 10px; transition: all 0.15s;
+}
+.fq-export-chevron:hover { color: var(--fq-text); border-color: var(--fq-muted); }
+.fq-export-menu {
+  position: absolute; bottom: 100%; right: 0;
+  margin-bottom: 4px; min-width: 160px;
+  background: var(--fq-panel); border: 1px solid var(--fq-border);
+  border-radius: var(--fq-radius); box-shadow: var(--fq-shadow);
+  overflow: hidden; z-index: 50;
+}
+.fq-export-menu button {
+  display: block; width: 100%; text-align: left;
+  appearance: none; border: none; background: transparent;
+  color: var(--fq-text); font-size: 12px; padding: 8px 12px;
+  cursor: pointer; transition: background 0.15s;
+  font-family: var(--fq-font);
+}
+.fq-export-menu button:hover { background: rgba(255,255,255,0.04); }
+.fq-export-menu button + button { border-top: 1px solid var(--fq-border-subtle); }
 `;

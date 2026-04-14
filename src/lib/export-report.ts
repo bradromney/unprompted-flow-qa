@@ -1,4 +1,4 @@
-import type { FlowBundle, Issue, StrategicObservation } from "./types";
+import type { FlowBundle, Issue, StepAssessment, StrategicObservation } from "./types";
 import type { ChangedFileGroup } from "./git-map";
 import { computeAssumptionHealth, type AssumptionHealth } from "./strategy-inference";
 
@@ -249,6 +249,184 @@ export function buildSessionPrompt(ctx: {
     lines.push("### Observations from codebase");
     for (const o of ctx.observations) {
       lines.push(`- **${o.type}**: ${o.observation}`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+/* ─── Session Context (shared by all 4 export formats) ───────────────────── */
+
+export interface SessionContext {
+  bundle: FlowBundle;
+  issues: Issue[];
+  observations: StrategicObservation[];
+  notes: Record<string, string>;
+  visited: Record<string, number>;
+  changeGroups: ChangedFileGroup[];
+  stepAssessments: Record<string, StepAssessment>;
+}
+
+/**
+ * 1. "Fix these" — user's notes + issues as AI-ready prompt.
+ * Most common use case: paste into Lovable / Cursor / Claude Code.
+ */
+export function buildFixPrompt(ctx: SessionContext): string {
+  const lines: string[] = [];
+  lines.push("## Fix these issues", "");
+
+  // Steps marked "needs work"
+  const needsWork = Object.entries(ctx.stepAssessments)
+    .filter(([, a]) => a.status === "needs-work")
+    .map(([sid, a]) => {
+      const step = ctx.bundle.steps[sid];
+      return { sid, step, note: a.note };
+    })
+    .filter((e) => e.step);
+
+  if (needsWork.length) {
+    for (const { step, note } of needsWork) {
+      lines.push(`- **${step!.instructions}**: needs work${note ? ` — "${note}"` : ""}`);
+    }
+    lines.push("");
+  }
+
+  // User notes, sorted by step
+  const notesEntries = Object.entries(ctx.notes).filter(([, t]) => t.trim());
+  if (notesEntries.length) {
+    for (const [sid, text] of notesEntries) {
+      const step = ctx.bundle.steps[sid];
+      const route = step?.urlPattern ?? "";
+      lines.push(`- On ${route}: "${text.trim()}"${step ? ` _(${step.instructions})_` : ""}`);
+    }
+    lines.push("");
+  }
+
+  // Issues by severity
+  if (ctx.issues.length) {
+    const sorted = [...ctx.issues].sort((a, b) => {
+      const sev = { critical: 0, major: 1, minor: 2, observation: 3, undefined: 4 };
+      return (sev[a.severity ?? "undefined"] ?? 4) - (sev[b.severity ?? "undefined"] ?? 4);
+    });
+    for (const issue of sorted) {
+      const step = ctx.bundle.steps[issue.stepId];
+      const sev = issue.severity ? ` (${issue.severity})` : "";
+      lines.push(`- **${issue.type}**${sev}: ${issue.notes}${step ? ` — _${step.instructions}_` : ""}`);
+    }
+    lines.push("");
+  }
+
+  // Brief context
+  if (ctx.changeGroups.length) {
+    lines.push("### Context");
+    lines.push("Changed files: " + ctx.changeGroups.map((g) => `\`${g.file}\``).join(", "));
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * 2. "Our analysis" — Flow QA's observations, strategic gaps, assumption risks.
+ */
+export function buildAnalysisPrompt(ctx: SessionContext): string {
+  const lines: string[] = [];
+  lines.push("## QA Analysis", "");
+
+  // Observations
+  if (ctx.observations.length) {
+    lines.push("### Observations");
+    for (const o of ctx.observations) {
+      lines.push(`- **${o.type}**: ${o.observation}`);
+    }
+    lines.push("");
+  }
+
+  // Assumption health
+  const health = computeAssumptionHealth(ctx.bundle, ctx.issues);
+  const atRisk = health.filter((a) => a.status === "at_risk" || a.status === "mixed");
+  if (atRisk.length) {
+    lines.push("### At-risk assumptions");
+    for (const a of atRisk) {
+      const tag = a.status === "at_risk" ? "CONTRADICTED" : "MIXED";
+      lines.push(`- **[${tag}]** "${a.assumption}" — ${a.supports}↑ ${a.contradicts}↓ ${a.ambiguous}~`);
+    }
+    lines.push("");
+  }
+
+  // Coverage gaps
+  const untested = health.filter((a) => a.status === "untested");
+  if (untested.length) {
+    lines.push("### Untested assumptions");
+    for (const a of untested) {
+      lines.push(`- "${a.assumption}"`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * 3. "Full session" — everything combined (enhanced buildSessionPrompt).
+ */
+export function buildFullExport(ctx: SessionContext): string {
+  // Delegate to existing buildSessionPrompt which already includes everything
+  const base = buildSessionPrompt(ctx);
+
+  // Append step assessments
+  const assessments = Object.entries(ctx.stepAssessments);
+  if (!assessments.length) return base;
+
+  const lines = [base];
+  lines.push("### Step Assessments");
+  for (const [sid, a] of assessments) {
+    const step = ctx.bundle.steps[sid];
+    const label = a.status === "good" ? "✓ Good" : "⚠ Needs work";
+    lines.push(`- ${label}: ${step?.instructions ?? sid}${a.note ? ` — "${a.note}"` : ""}`);
+  }
+  lines.push("");
+
+  return lines.join("\n");
+}
+
+/**
+ * 4. "Just my notes" — only user's notes and issues, no system context.
+ */
+export function buildRawNotes(ctx: SessionContext): string {
+  const lines: string[] = [];
+  const ts = new Date().toISOString().slice(0, 10);
+  lines.push(`## QA Notes — ${ts}`, "");
+
+  const notesEntries = Object.entries(ctx.notes).filter(([, t]) => t.trim());
+  if (notesEntries.length) {
+    lines.push("### Notes");
+    for (const [sid, text] of notesEntries) {
+      const step = ctx.bundle.steps[sid];
+      lines.push(`- **${step?.instructions ?? sid}**: ${text.trim()}`);
+    }
+    lines.push("");
+  }
+
+  if (ctx.issues.length) {
+    lines.push("### Issues");
+    for (const issue of ctx.issues) {
+      const step = ctx.bundle.steps[issue.stepId];
+      const sev = issue.severity ? ` (${issue.severity})` : "";
+      lines.push(`- **${issue.type}**${sev}: ${issue.notes}${step ? ` — _${step.instructions}_` : ""}`);
+    }
+    lines.push("");
+  }
+
+  const needsWork = Object.entries(ctx.stepAssessments)
+    .filter(([, a]) => a.status === "needs-work" && a.note)
+    .map(([sid, a]) => ({ step: ctx.bundle.steps[sid], note: a.note }));
+
+  if (needsWork.length) {
+    lines.push("### Needs work");
+    for (const { step, note } of needsWork) {
+      lines.push(`- **${step?.instructions ?? "?"}**: ${note}`);
     }
     lines.push("");
   }
