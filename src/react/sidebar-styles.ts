@@ -36,6 +36,7 @@ export const SIDEBAR_CSS = `
   display: flex;
   flex-direction: column;
   min-width: 0;
+  position: relative;
 }
 
 /* ── Header — frosted glass with accent edge ── */
@@ -683,21 +684,20 @@ export const SIDEBAR_CSS = `
 }
 .fq-gear-btn:hover { color: var(--fq-text); border-color: var(--fq-border); background: var(--fq-surface); }
 
-/* ── Tools overlay panel ── */
+/* ── Tools dropdown — anchored to gear button ── */
 .fq-tools-backdrop {
-  position: absolute; inset: 0; z-index: 90;
-  background: rgba(0,0,0,0.5);
-  backdrop-filter: blur(2px);
+  position: fixed; inset: 0; z-index: 90;
+  background: transparent;
 }
 .fq-tools-panel {
-  position: absolute; top: 50%; left: 50%; z-index: 100;
-  transform: translate(-50%, -50%);
-  width: calc(100% - 32px); max-width: 280px;
+  position: absolute; top: 52px; right: 12px; z-index: 100;
+  width: 240px;
   background: var(--fq-panel);
   border: 1px solid var(--fq-border); border-radius: var(--fq-radius);
-  box-shadow: var(--fq-shadow), 0 8px 32px rgba(0,0,0,0.5);
-  padding: 16px;
-  display: flex; flex-direction: column; gap: 14px;
+  box-shadow: var(--fq-shadow), 0 8px 24px rgba(0,0,0,0.45);
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 12px;
+  animation: fq-slide-in 0.15s ease both;
 }
 .fq-tools-panel-header {
   display: flex; justify-content: space-between; align-items: center;
