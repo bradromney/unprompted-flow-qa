@@ -244,9 +244,10 @@ function SidebarInner({ store }: { store: FlowQAStore }) {
 
   const [expandedNotes, setExpandedNotes] = useState<string | null>(null);
   const [expandedCriteria, setExpandedCriteria] = useState<string | null>(null);
+  const [expandedChanges, setExpandedChanges] = useState<string | null>(null);
+  const [flowsVisible, setFlowsVisible] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [issueInputFocused, setIssueInputFocused] = useState(false);
-  const [obsScope, setObsScope] = useState<"page" | "all">("page");
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
   /* ── Loading / empty states ── */
@@ -279,20 +280,37 @@ function SidebarInner({ store }: { store: FlowQAStore }) {
 
   const otherFlows = segFlows.filter((f) => !flowsOnPage.some((fp) => fp.id === f.id));
 
-  // Observations relevant to current page
-  const pageObservations = observations.filter((o) => {
-    const lower = o.observation.toLowerCase();
-    if (pathname.startsWith("/pipeline") && (lower.includes("pipeline") || lower.includes("focus today") || lower.includes("stage"))) return true;
-    if (pathname.startsWith("/contacts") && (lower.includes("contact") || lower.includes("outreach") || lower.includes("warmth"))) return true;
-    if (pathname.startsWith("/strategy") && (lower.includes("strategy") || lower.includes("alignment") || lower.includes("story") || lower.includes("positioning"))) return true;
-    if (pathname.startsWith("/profile") && (lower.includes("profile") || lower.includes("positioning"))) return true;
-    if (pathname === "/" && (lower.includes("landing") || lower.includes("onboard"))) return true;
-    return false;
-  });
-  const otherObservations = observations.filter((o) => !pageObservations.includes(o));
-  const visibleObs = obsScope === "all"
-    ? [...pageObservations, ...otherObservations]
-    : pageObservations.length > 0 ? pageObservations : observations;
+  /* ── Changes bucketed by page ── */
+  const onPageChangesByStep = new Map<string, { step: Step; files: Set<string>; flowTitles: Set<string> }>();
+  const offPageByRoute = new Map<string, { count: number; firstTitle?: string }>();
+  for (const group of changeGroups) {
+    for (const a of group.affectedSteps) {
+      if (!stale.has(a.stepId)) continue; // already reviewed since change
+      if (matchingStepIds.includes(a.stepId)) {
+        const cur = onPageChangesByStep.get(a.stepId) ?? {
+          step: a.step,
+          files: new Set<string>(),
+          flowTitles: new Set<string>(),
+        };
+        cur.files.add(group.file);
+        if (a.flowTitle) cur.flowTitles.add(a.flowTitle);
+        onPageChangesByStep.set(a.stepId, cur);
+      } else {
+        const route = a.step.urlPattern;
+        const cur = offPageByRoute.get(route) ?? { count: 0, firstTitle: a.step.instructions };
+        cur.count += 1;
+        offPageByRoute.set(route, cur);
+      }
+    }
+  }
+  const onPageChanges = [...onPageChangesByStep.entries()].map(([stepId, v]) => ({
+    stepId,
+    step: v.step,
+    files: [...v.files],
+    flowTitles: [...v.flowTitles],
+  }));
+  const hasCoverageOnPage = matchingStepIds.length > 0;
+  const showAllClear = hasCoverageOnPage && onPageChanges.length === 0;
 
   return (
     <div className="fq-root">
@@ -378,83 +396,120 @@ function SidebarInner({ store }: { store: FlowQAStore }) {
           <code className="fq-route-path">{pathname}</code>
         </div>
 
-        {/* ── WHAT CHANGED ── */}
-        {changeGroups.length > 0 && (
-          <div className="fq-change-section">
-            <div className="fq-section-label">What changed</div>
-            {changeGroups.map((g, gi) => (
-              <div key={gi} className="fq-change-group">
-                <div className="fq-change-file"><code>{g.file}</code></div>
-                {g.affectedSteps.map(({ stepId, step, flowTitle }) => {
-                  const isDone = !!visited[stepId];
-                  const isStale = stale.has(stepId);
-                  const route = step.urlPattern;
-                  return (
-                    <div
-                      key={stepId}
-                      className="fq-change-step"
-                      onClick={() => route && store.requestNavigation(route)}
-                      style={route ? { cursor: "pointer" } : undefined}
-                    >
-                      <span className={`fq-change-dot ${isStale ? "fq-dot-amber" : isDone ? "fq-dot-green" : "fq-dot-muted"}`} />
-                      <span className="fq-change-step-text">{step.instructions ?? stepId}</span>
-                      {route && <span className="fq-route-link">{route}</span>}
-                      <span className="fq-muted" style={{ fontSize: 10, marginLeft: "auto", flexShrink: 0 }}>
-                        {flowTitle}
-                      </span>
-                    </div>
-                  );
-                })}
+        {/* ── CHANGES ON THIS PAGE (primary) ── */}
+        {onPageChanges.length > 0 && (
+          <div className="fq-changes-section">
+            <div className="fq-section-label">
+              {onPageChanges.length} change{onPageChanges.length !== 1 ? "s" : ""} to review
+            </div>
+            {onPageChanges.map((c) => (
+              <ChangeRow
+                key={c.stepId}
+                stepId={c.stepId}
+                step={c.step}
+                files={c.files}
+                flowTitles={c.flowTitles}
+                store={store}
+                bundle={bundle}
+                assessment={stepAssessments[c.stepId]}
+                expanded={expandedChanges === c.stepId}
+                setExpanded={(v) => setExpandedChanges(v ? c.stepId : null)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* ── ALL CLEAR (empty state when coverage exists but nothing stale) ── */}
+        {showAllClear && (
+          <div className="fq-all-clear-card">
+            <span className="fq-all-clear-icon">✓</span>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <span className="fq-all-clear-title">All clear</span>
+              <span className="fq-all-clear-detail">No changes since your last review</span>
+            </div>
+          </div>
+        )}
+
+        {/* ── OTHER PAGES WITH CHANGES ── */}
+        {offPageByRoute.size > 0 && (
+          <div className="fq-other-changes-section">
+            <div className="fq-section-label">Other pages with changes</div>
+            {[...offPageByRoute.entries()].map(([route, info]) => (
+              <div
+                key={route}
+                className="fq-other-change-item"
+                onClick={() => store.requestNavigation(route)}
+              >
+                <code className="fq-route-path-small">{route}</code>
+                <span className="fq-muted" style={{ fontSize: 11, marginLeft: "auto" }}>
+                  {info.count} change{info.count !== 1 ? "s" : ""}
+                </span>
+                <span className="fq-chevron-right">›</span>
               </div>
             ))}
           </div>
         )}
 
-        {/* ── FLOW CARDS ── */}
-        <div className="fq-flow-cards">
-          {flowsOnPage.map((flow) => (
-            <FlowCard
-              key={flow.id}
-              flow={flow}
-              store={store}
-              bundle={bundle}
-              expanded={expandedFlowIds.has(flow.id)}
-              visited={visited}
-              notes={notes}
-              stale={stale}
-              hotFlows={hotFlows}
-              issues={issues}
-              matchingStepIds={matchingStepIds}
-              stepAssessments={stepAssessments}
-              expandedCriteria={expandedCriteria}
-              setExpandedCriteria={setExpandedCriteria}
-              expandedNotes={expandedNotes}
-              setExpandedNotes={setExpandedNotes}
-            />
-          ))}
-
-          {/* Other flows — not on this page */}
-          {otherFlows.length > 0 && (
-            <div className="fq-other-flows">
-              <div className="fq-section-label" style={{ fontSize: 10, padding: "4px 0" }}>Other flows</div>
-              {otherFlows.map((f) => {
-                const vc = f.steps.filter((s) => visited[s]).length;
-                const sc = f.steps.filter((s) => stale.has(s)).length;
-                return (
-                  <div
-                    key={f.id}
-                    className="fq-other-flow-item"
-                    onClick={() => store.toggleFlowExpanded(f.id)}
-                  >
-                    <span className="fq-other-flow-title">{f.title}</span>
-                    <span className="fq-flow-card-progress">{vc}/{f.steps.length}</span>
-                    {sc > 0 && <span className="fq-chip fq-chip-stale">{sc}</span>}
+        {/* ── FLOWS (secondary, collapsible) ── */}
+        {flowsOnPage.length > 0 && (
+          <div className="fq-flows-toggle-section">
+            <button
+              type="button"
+              className="fq-flows-toggle"
+              onClick={() => setFlowsVisible(!flowsVisible)}
+            >
+              <span className={`fq-chevron ${flowsVisible ? "fq-chevron-open" : ""}`}>›</span>
+              <span>View as flow journey</span>
+              <span className="fq-muted" style={{ fontSize: 11, marginLeft: "auto" }}>
+                {flowsOnPage.length} flow{flowsOnPage.length !== 1 ? "s" : ""} here
+              </span>
+            </button>
+            {flowsVisible && (
+              <div className="fq-flow-cards" style={{ marginTop: 6 }}>
+                {flowsOnPage.map((flow) => (
+                  <FlowCard
+                    key={flow.id}
+                    flow={flow}
+                    store={store}
+                    bundle={bundle}
+                    expanded={expandedFlowIds.has(flow.id)}
+                    visited={visited}
+                    notes={notes}
+                    stale={stale}
+                    hotFlows={hotFlows}
+                    issues={issues}
+                    matchingStepIds={matchingStepIds}
+                    stepAssessments={stepAssessments}
+                    expandedCriteria={expandedCriteria}
+                    setExpandedCriteria={setExpandedCriteria}
+                    expandedNotes={expandedNotes}
+                    setExpandedNotes={setExpandedNotes}
+                  />
+                ))}
+                {otherFlows.length > 0 && (
+                  <div className="fq-other-flows">
+                    <div className="fq-section-label" style={{ fontSize: 10, padding: "4px 0" }}>Other flows</div>
+                    {otherFlows.map((f) => {
+                      const vc = f.steps.filter((s) => visited[s]).length;
+                      const sc = f.steps.filter((s) => stale.has(s)).length;
+                      return (
+                        <div
+                          key={f.id}
+                          className="fq-other-flow-item"
+                          onClick={() => store.toggleFlowExpanded(f.id)}
+                        >
+                          <span className="fq-other-flow-title">{f.title}</span>
+                          <span className="fq-flow-card-progress">{vc}/{f.steps.length}</span>
+                          {sc > 0 && <span className="fq-chip fq-chip-stale">{sc}</span>}
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── ISSUE LOG ── */}
         {store.activeFlowId && (() => {
@@ -587,29 +642,6 @@ function SidebarInner({ store }: { store: FlowQAStore }) {
           </details>
         )}
 
-        {/* ── INSIGHTS — inline, visible by default ── */}
-        {observations.length > 0 && (
-          <div className="fq-insights-section">
-            <div className="fq-section-label">
-              Insights
-              <span className="fq-insights-count">{visibleObs.length}</span>
-            </div>
-            <div className="fq-observation-list">
-              {visibleObs.map((o, i) => (
-                <ObservationCard key={i} o={o} />
-              ))}
-              {pageObservations.length > 0 && otherObservations.length > 0 && obsScope !== "all" && (
-                <button
-                  type="button"
-                  className="fq-show-all-insights"
-                  onClick={() => setObsScope("all")}
-                >
-                  Show {otherObservations.length} more
-                </button>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ── FOOTER — export with format picker ── */}
@@ -830,6 +862,142 @@ function FlowCard({
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── ChangeRow ────────────────────────────────────────────────────────────── */
+
+function ChangeRow({
+  stepId,
+  step,
+  files,
+  flowTitles,
+  store,
+  bundle,
+  assessment,
+  expanded,
+  setExpanded,
+}: {
+  stepId: string;
+  step: Step;
+  files: string[];
+  flowTitles: string[];
+  store: FlowQAStore;
+  bundle: { flows: Flow[]; steps: Record<string, Step> };
+  assessment: StepAssessment | undefined;
+  expanded: boolean;
+  setExpanded: (v: boolean) => void;
+}) {
+  const hasCriteria = !!(step.success_looks_like || step.failure_signal || step.assumption_dependency);
+  const dotClass =
+    assessment?.status === "good"
+      ? "fq-dot-green"
+      : assessment?.status === "needs-work"
+      ? "fq-dot-amber"
+      : "fq-dot-muted";
+
+  return (
+    <div className={`fq-change-row ${assessment ? `fq-change-row-${assessment.status}` : ""}`}>
+      <div className="fq-change-row-header" onClick={() => setExpanded(!expanded)}>
+        <span className={`fq-change-row-dot ${dotClass}`} />
+        <span className="fq-change-row-title">{step.instructions ?? stepId}</span>
+        {flowTitles.length > 0 && (
+          <span className="fq-change-row-flows">
+            {flowTitles.length === 1
+              ? flowTitles[0]
+              : `${flowTitles.length} flows`}
+          </span>
+        )}
+        <span className={`fq-chevron ${expanded ? "fq-chevron-open" : ""}`}>›</span>
+      </div>
+
+      {expanded && (
+        <div className="fq-change-row-body">
+          {hasCriteria && (
+            <div className="fq-change-criteria">
+              {step.success_looks_like && (
+                <div className="fq-criteria-row">
+                  <span style={{ color: "var(--fq-ok)", flexShrink: 0 }}>✓</span>
+                  <span className="fq-criteria-text">{step.success_looks_like}</span>
+                </div>
+              )}
+              {step.failure_signal && (
+                <div className="fq-criteria-row">
+                  <span style={{ color: "var(--fq-danger)", flexShrink: 0 }}>✗</span>
+                  <span className="fq-criteria-text">{step.failure_signal}</span>
+                </div>
+              )}
+              {step.assumption_dependency && (
+                <div className="fq-criteria-row">
+                  <span style={{ color: "var(--fq-warn)", flexShrink: 0 }}>?</span>
+                  <span className="fq-criteria-text">{step.assumption_dependency}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {files.length > 0 && (
+            <div className="fq-change-files">
+              <span className="fq-muted" style={{ fontSize: 10 }}>Changed:</span>{" "}
+              {files.map((f, i) => (
+                <span key={f}>
+                  {i > 0 && ", "}
+                  <code className="fq-change-file-code">{f}</code>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="fq-assess-row">
+            <button
+              type="button"
+              className={`fq-assess-btn fq-assess-btn-good ${assessment?.status === "good" ? "fq-assess-active" : ""}`}
+              onClick={() => {
+                store.setStepAssessment(stepId, { status: "good" });
+                store.markStepReviewed(stepId);
+              }}
+            >
+              Good
+            </button>
+            <button
+              type="button"
+              className={`fq-assess-btn fq-assess-btn-work ${assessment?.status === "needs-work" ? "fq-assess-active" : ""}`}
+              onClick={() => {
+                store.setStepAssessment(stepId, { status: "needs-work", note: assessment?.note });
+                store.markStepReviewed(stepId);
+              }}
+            >
+              Add note
+            </button>
+          </div>
+
+          {assessment?.status === "needs-work" && (
+            <textarea
+              className="fq-assess-note"
+              placeholder="What needs to change?"
+              value={assessment.note ?? ""}
+              onChange={(e) =>
+                store.setStepAssessment(stepId, { ...assessment, note: e.target.value })
+              }
+              rows={2}
+            />
+          )}
+
+          {flowTitles.length > 0 && (
+            <button
+              type="button"
+              className="fq-linked-flows-btn"
+              onClick={() => {
+                const flow = bundle.flows.find((f) => flowTitles.includes(f.title));
+                if (flow) store.toggleFlowExpanded(flow.id);
+              }}
+            >
+              {flowTitles.length === 1 ? `View ${flowTitles[0]}` : `View ${flowTitles.length} linked flows`}
+            </button>
+          )}
         </div>
       )}
     </div>

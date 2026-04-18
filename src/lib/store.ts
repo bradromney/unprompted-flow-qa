@@ -539,6 +539,14 @@ export class FlowQAStore {
     this.notify();
   }
 
+  /** Always sets visited[stepId] to now — clears stale state */
+  markStepReviewed(stepId: string) {
+    this.visited = { ...this.visited, [stepId]: Date.now() };
+    setVisitedSteps(this.visited);
+    this.checkSessionCompletion();
+    this.notify();
+  }
+
   async onLogIssue(flowId?: string) {
     if (!this.bundle) return;
     const fid = flowId ?? this.activeFlowId;
