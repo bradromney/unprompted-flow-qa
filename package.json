@@ -1,7 +1,7 @@
 {
-  "name": "@unprompted/flow-qa",
+  "name": "@unprompted/signal",
   "version": "0.1.0",
-  "description": "Strategic evaluation session — dev-only embedded QA sidebar for React SPAs",
+  "description": "Unprompted Signal — strategic intelligence sidebar for vibe coders. Embedded in-app review with a dashboard at unprompted.so.",
   "type": "module",
   "publishConfig": {
     "access": "public"

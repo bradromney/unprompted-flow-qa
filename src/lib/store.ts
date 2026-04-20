@@ -270,7 +270,7 @@ export class FlowQAStore {
     if (typeof window === "undefined") return;
     (window as any).__FLOW_QA_TOGGLE__ = () => this.setOpen(!this.open);
     console.info(
-      "[Flow QA] Toggle: Control+Shift+F (or Control+Shift+`, or Control+Option+F) — or run __FLOW_QA_TOGGLE__() in the console — or use the corner button."
+      "[Signal] Toggle: Control+Shift+F (or Control+Shift+`, or Control+Option+F) — or run __FLOW_QA_TOGGLE__() in the console — or use the corner button."
     );
     this.cleanupFns.push(() => {
       delete (window as any).__FLOW_QA_TOGGLE__;

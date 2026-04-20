@@ -208,7 +208,7 @@ export function FlowQAShell(props: FlowQAShellProps) {
           }}
           onClick={() => store.setOpen(true)}
         >
-          Flow QA (Ctrl+Shift+F)
+          Signal (Ctrl+Shift+F)
         </button>
       )}
     </div>
@@ -255,7 +255,7 @@ function SidebarInner({ store }: { store: FlowQAStore }) {
   if (!bundle) {
     return (
       <div className="fq-root">
-        <div className="fq-header"><div className="fq-brand">Flow QA</div></div>
+        <div className="fq-header"><div className="fq-brand"><span className="fq-brand-dot" />Signal</div></div>
         <div className="fq-body fq-muted">Loading workspace...</div>
       </div>
     );
@@ -264,7 +264,7 @@ function SidebarInner({ store }: { store: FlowQAStore }) {
   if (!bundle.flows.length) {
     return (
       <div className="fq-root">
-        <div className="fq-header"><div className="fq-brand">Flow QA</div></div>
+        <div className="fq-header"><div className="fq-brand"><span className="fq-brand-dot" />Signal</div></div>
         <div className="fq-body fq-muted">
           No flows found. Run <code>npx flow-qa generate</code> then <code>npx flow-qa git-context</code>.
         </div>
@@ -316,7 +316,7 @@ function SidebarInner({ store }: { store: FlowQAStore }) {
     <div className="fq-root">
       {/* ── HEADER ── */}
       <div className="fq-header">
-        <div className="fq-brand">Flow QA</div>
+        <div className="fq-brand"><span className="fq-brand-dot" />Signal</div>
         <div style={{ flex: 1 }} />
         {segments.length > 1 && (
           <select

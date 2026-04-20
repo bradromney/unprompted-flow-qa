@@ -67,6 +67,23 @@ export const SIDEBAR_CSS = `
   letter-spacing: -0.02em;
   color: var(--fq-accent);
   text-shadow: 0 0 20px rgba(255,107,94,0.3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fq-brand-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fq-accent);
+  box-shadow: 0 0 10px rgba(255,107,94,0.5), 0 0 3px rgba(255,107,94,0.8);
+  flex-shrink: 0;
+  animation: fq-pulse-dot 2.4s ease-in-out infinite;
+}
+@keyframes fq-pulse-dot {
+  0%, 100% { box-shadow: 0 0 10px rgba(255,107,94,0.5), 0 0 3px rgba(255,107,94,0.8); }
+  50% { box-shadow: 0 0 18px rgba(255,107,94,0.75), 0 0 5px rgba(255,107,94,1); }
 }
 .fq-muted { color: var(--fq-muted); font-size: 12px; }
 

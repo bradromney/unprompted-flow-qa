@@ -105,7 +105,7 @@ export async function exportMarkdown(ctx: ExportContext): Promise<string> {
   }
 
   const lines: string[] = [];
-  lines.push(`# Flow QA export`);
+  lines.push(`# Unprompted Signal export`);
   lines.push("");
   lines.push(`Generated: ${new Date().toISOString()}`);
   lines.push("");
@@ -175,7 +175,7 @@ export function buildSessionPrompt(ctx: {
 }): string {
   const lines: string[] = [];
   const ts = new Date().toISOString().slice(0, 10);
-  lines.push(`## Flow QA Review — ${ts}`, "");
+  lines.push(`## Unprompted Signal Review — ${ts}`, "");
 
   // Changed files → affected steps
   if (ctx.changeGroups.length) {
